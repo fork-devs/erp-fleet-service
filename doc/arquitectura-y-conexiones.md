@@ -1,0 +1,198 @@
+# Documentación de Arquitectura e Integración — `erp-fleet-service`
+
+**Microservicio:** Gestión de Clientes y Parque Automotor (Customer & Fleet)  
+**Sistema:** DriveOS ERP SaaS  
+**Organización:** ForkDevs — Universidad Peruana de Ciencias Aplicadas (UPC)  
+**Curso:** Fundamentos de Arquitectura de Software (1ASI0657)  
+
+---
+
+## 1. Visión General del Microservicio
+
+El microservicio `erp-fleet-service` es el componente responsable del catálogo maestro de **Clientes** y **Vehículos** para los talleres mecánicos que operan sobre la plataforma DriveOS ERP SaaS. 
+
+Actúa como el repositorio centralizado de activos automotrices y datos de contacto de clientes, sirviendo como fuente primaria de datos para procesos posteriores de cotización, diagnósticos OBD-II, órdenes de trabajo y facturación electrónica.
+
+```
+                    ┌─────────────────────────┐
+                    │   DriveOS Frontend      │
+                    │   (Angular / Mobile)    │
+                    └───────────┬─────────────┘
+                                │ HTTP / REST (JWT Bearer)
+                                ▼
+                    ┌─────────────────────────┐
+                    │    erp-api-gateway      │  Puerto 8080
+                    │  (Edge & Token Verify)  │
+                    └───────────┬─────────────┘
+                                │ HTTP / REST (Inyecta X-Tenant-ID, X-User-ID)
+                                ▼
+        ┌─────────────────────────────────────────────────┐
+        │               erp-fleet-service                 │  Puerto 8083
+        │        (Clean Architecture / Spring Boot)       │
+        └───────┬─────────────────────────────┬───────────┘
+                │                             │
+       JDBC/SQL │ (Postgres RLS)      HTTP/REST│ Circuit Breaker
+                ▼                             ▼
+   ┌───────────────────────┐     ┌────────────────────────┐
+   │     erp_fleet_db      │     │  erp-integration-hub   │  Puerto 8085
+   │     (Puerto 5435)     │     │ (RENIEC / SUNAT / MTC) │
+   └───────────────────────┘     └────────────────────────┘
+```
+
+---
+
+## 2. Arquitectura de Software (Clean Architecture)
+
+El servicio sigue estrictamente los principios de **Clean Architecture** (Arquitectura Limpia) y **Domain-Driven Design (DDD)**, estructurado en cuatro capas concéntricas donde las dependencias siempre apuntan hacia adentro:
+
+```
+      interfaces.rest (Controllers, DTOs, Exception Handlers)
+                 │
+                 ▼
+      application (Use Cases, Services, Commands, Results)
+                 │
+                 ▼
+      domain (Entities, Value Objects, Ports, Domain Exceptions)
+                 ▲
+                 │
+      infrastructure (JPA Entities, Adapters, Config, Repositories)
+```
+
+### Estructura de Paquetes (`com.erp.fleet`):
+
+```
+com.erp.fleet/
+├── domain/                                  # CAPA CORE: Reglas de negocio puras (sin Spring)
+│   ├── exception/                           # Excepciones de negocio (CustomerNotFound, InvalidPlate, etc.)
+│   ├── model/                               # Entidades y Agregados (Customer, Vehicle) y Enums
+│   ├── port/                                # Puertos de salida hacia infraestructura (CustomerRepositoryPort, VehicleRepositoryPort)
+│   └── valueobject/                         # Inmutables con validación (TenantId, CustomerId, VehicleId, Plate, DocNumber)
+│
+├── application/                             # CAPA DE APLICACIÓN: Orquestación de casos de uso
+│   ├── dto/
+│   │   ├── command/                         # Comandos inmutables (RegisterCustomerCommand, etc.)
+│   │   └── result/                          # Resultados inmutables hacia las capas externas
+│   ├── service/                             # Implementaciones transaccionales de casos de uso
+│   └── usecase/                             # Interfaces de casos de uso (puertos de entrada)
+│
+├── infrastructure/                          # CAPA DE INFRAESTRUCTURA: Detalles tecnológicos
+│   ├── config/                              # Seguridad stateless, CORS, OpenAPI, cableado Spring
+│   └── persistence/
+│       ├── adapter/                         # Adaptadores que implementan los puertos de dominio
+│       ├── entity/                          # Entidades JPA mapeadas a tablas SQL
+│       ├── mapper/                          # Mappers bidireccionales Dominio <-> Entidad JPA
+│       └── repository/                      # Repositorios Spring Data JPA
+│
+└── interfaces/rest/                         # CAPA DE ENTRADA: Controladores HTTP
+    ├── advice/                              # Manejo global de excepciones (@RestControllerAdvice)
+    ├── controller/                          # CustomerController, VehicleController
+    └── dto/
+        ├── request/                         # Cuerpos de petición con validaciones (@Valid)
+        └── response/                        # Respuestas HTTP presentadas al cliente
+```
+
+---
+
+## 3. Modelo de Base de Datos y Aislamiento Multi-Tenant
+
+### 3.1. Base de Datos Dedicada
+Cumpliendo el principio de **Database-per-Service**, `erp-fleet-service` posee su propia base de datos física/lógica:
+* **Motor:** PostgreSQL 16
+* **Nombre de BD:** `erp_fleet_db`
+* **Puerto:** 5435
+* **Herramienta de migración:** Flyway (`V1__create_customers_table.sql`, `V2__create_vehicles_table.sql`)
+
+### 3.2. Aislamiento con Row Level Security (RLS)
+Para garantizar la estricta separación de datos entre diferentes talleres (inquilinos):
+1. Todas las tablas incluyen una columna obligatoria `tenant_id UUID NOT NULL`.
+2. Las políticas de PostgreSQL RLS aíslan cada fila automáticamente:
+   ```sql
+   ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY customer_tenant_isolation ON customers
+       USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
+
+   ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+   CREATE POLICY vehicle_tenant_isolation ON vehicles
+       USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
+   ```
+3. A nivel de aplicación, todas las consultas y repositorios Spring Data filtran obligatoriamente por `tenant_id` recibido desde el encabezado verificado.
+
+### 3.3. Relación Lógica entre Entidades
+No existen claves foráneas (`FOREIGN KEY`) cruzadas entre microservicios:
+* La tabla `vehicles` almacena la clave `customer_id UUID`, representando una **referencia lógica**.
+* Esto permite evolucionar o migrar el servicio de clientes de forma independiente sin acoplamientos de esquemas relacionales.
+
+---
+
+## 4. Conexiones e Integraciones en el Ecosistema Backend
+
+A continuación se detalla cómo se integra `erp-fleet-service` con los demás componentes del ecosistema DriveOS:
+
+### 4.1. Conexión Entrada: `erp-api-gateway` → `erp-fleet-service`
+* **Protocolo:** HTTP / REST síncrono.
+* **Seguridad Perimetral:** El API Gateway valida el JWT emitido por `erp-auth-service`. Si el token es válido:
+  1. Extrae los claims del token.
+  2. Inyecta los siguientes headers HTTP hacia `erp-fleet-service`:
+     * `X-Tenant-ID`: UUID del taller autenticado.
+     * `X-User-ID`: UUID del usuario emisor.
+     * `X-User-Roles`: Roles asignados (ej. `MECANICO`, `ADMIN`).
+* **Seguridad Interna:** `erp-fleet-service` opera de manera *stateless*, confiando en la red interna protegida y consumiendo directamente `@RequestHeader("X-Tenant-ID") UUID tenantId`.
+
+### 4.2. Conexión Salida: `erp-fleet-service` → `erp-integration-hub` (ACL)
+* **Objetivo:** Validación de autenticidad de documentos (DNI/RUC con RENIEC/SUNAT) y antecedentes de placa/VIN (MTC).
+* **Flujo Asíncrono no bloqueante:**
+  1. Cuando un usuario registra un cliente o vehículo en `erp-fleet-service`, el registro se persiste inmediatamente en la base de datos con `validation_status = 'PENDING'`.
+  2. `erp-fleet-service` emite una solicitud asíncrona hacia `erp-integration-hub` (puerto 8085).
+  3. Si la pasarela externa responde con éxito, se actualiza a `VALIDATED`.
+  4. Si RENIEC o SUNAT están caídos, la operación del taller no se detiene; el registro permanece en `PENDING` para reintentos posteriores gracias al Circuit Breaker de Resilience4j.
+
+### 4.3. Conexión Salida / Consumo: `erp-work-order-service` → `erp-fleet-service`
+* **Objetivo:** Creación y asociación de órdenes de servicio automotriz.
+* **Interacción:**
+  * Al iniciar una orden de reparación, `erp-work-order-service` consulta a `erp-fleet-service`:
+    * `GET /api/v1/vehicles/{id}` → Para validar marca, modelo, año y VIN del auto ingresado al taller.
+    * `GET /api/v1/customers/{id}` → Para validar los datos de facturación del propietario.
+
+---
+
+## 5. Especificación de la API REST
+
+Todos los endpoints están documentados bajo el estándar OpenAPI 3.0 / Swagger en:  
+👉 **`http://localhost:8083/swagger-ui/index.html`**
+
+### Matriz de Endpoints
+
+| Método | Endpoint | Descripción | Header Obligatorio |
+|---|---|---|---|
+| **POST** | `/api/v1/customers` | Registrar un nuevo cliente en el taller | `X-Tenant-ID: <UUID>` |
+| **GET** | `/api/v1/customers` | Listar todos los clientes del taller | `X-Tenant-ID: <UUID>` |
+| **GET** | `/api/v1/customers/{id}` | Obtener detalle de cliente por ID | `X-Tenant-ID: <UUID>` |
+| **PUT** | `/api/v1/customers/{id}` | Actualizar datos de contacto del cliente | `X-Tenant-ID: <UUID>` |
+| **DELETE** | `/api/v1/customers/{id}` | Desactivar cliente (borrado lógico) | `X-Tenant-ID: <UUID>` |
+| **POST** | `/api/v1/vehicles` | Registrar nuevo vehículo asociado a un cliente | `X-Tenant-ID: <UUID>` |
+| **GET** | `/api/v1/vehicles` | Listar todos los vehículos registrados en el taller | `X-Tenant-ID: <UUID>` |
+| **GET** | `/api/v1/vehicles/{id}` | Obtener vehículo por ID | `X-Tenant-ID: <UUID>` |
+| **GET** | `/api/v1/vehicles/customer/{customerId}` | Listar flota vehicular de un cliente específico | `X-Tenant-ID: <UUID>` |
+| **PUT** | `/api/v1/vehicles/{id}` | Actualizar datos del vehículo (año, modelo, VIN) | `X-Tenant-ID: <UUID>` |
+
+---
+
+## 6. Guía de Despliegue y Puesta en Marcha
+
+### Prerrequisitos
+* Java 21 JDK instalado.
+* Docker Desktop activo.
+
+### Pasos de Ejecución Local
+```bash
+# 1. Posicionarse en la raíz del microservicio
+cd "C:\Users\ASUS\Documents\FUNDAMENTOS\informefinal\Nueva carpeta\erp-fleet-service"
+
+# 2. Levantar la base de datos PostgreSQL en Docker
+docker compose up -d
+
+# 3. Compilar y ejecutar la aplicación mediante el Maven Wrapper
+.\mvnw.cmd spring-boot:run
+```
+
+El servicio estará listo para recibir peticiones en el puerto **`8083`**.
