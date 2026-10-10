@@ -1,0 +1,15 @@
+services:
+  fleet-postgres:
+    image: 'postgres:16-alpine'
+    container_name: erp-fleet-postgres
+    environment:
+      - POSTGRES_DB=erp_fleet_db
+      - POSTGRES_USER=fleet_user
+      - POSTGRES_PASSWORD=fleet_secret
+    ports:
+      - '5435:5432'
+    volumes:
+      - postgres_fleet_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_fleet_data:
