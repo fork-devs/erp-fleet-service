@@ -42,7 +42,8 @@ public class GlobalRestExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody("Error interno del servidor"));
+        ex.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody("Error interno: " + ex.getClass().getName() + " - " + ex.getMessage()));
     }
 
     private Map<String, Object> errorBody(String message) {
