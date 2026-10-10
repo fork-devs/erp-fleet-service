@@ -5,6 +5,7 @@ import com.erp.fleet.domain.exception.DocAlreadyExistsException;
 import com.erp.fleet.domain.exception.DomainException;
 import com.erp.fleet.domain.exception.PlateAlreadyExistsException;
 import com.erp.fleet.domain.exception.VehicleNotFoundException;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.Map;
 
+@Hidden
 @RestControllerAdvice
 public class GlobalRestExceptionHandler {
 
