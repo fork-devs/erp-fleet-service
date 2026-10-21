@@ -1,0 +1,18 @@
+# =============================================================================
+# ERP FLEET SERVICE - PERFIL DE DESARROLLO LOCAL
+# =============================================================================
+# El documento OpenAPI se publica aqui, y no en el resto de entornos: en
+# produccion no hace falta, y publicarlo es informar a cualquiera de la
+# superficie de la API.
+# =============================================================================
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.erp.fleet: DEBUG

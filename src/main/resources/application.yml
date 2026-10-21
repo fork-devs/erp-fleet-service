@@ -107,8 +107,13 @@ resilience4j:
 springdoc:
   api-docs:
     path: /v3/api-docs
+    # El documento se publica tras un perfil: en un entorno de produccion no
+    # hace falta, y publicarlo es informar a cualquiera de la superficie de la
+    # API.
+    enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
     path: /swagger-ui.html
+    enabled: ${SWAGGER_ENABLED:false}
     operationsSorter: method
 
 management:
