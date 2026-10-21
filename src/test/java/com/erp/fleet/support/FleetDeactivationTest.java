@@ -87,8 +87,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
         mockMvc.perform(post("/api/v1/fleet/vehicles")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"XYZ-"
-                                + (Math.abs(UUID.randomUUID().hashCode() % 1000)) + "\"}"))
+                        .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"XYZ-%03d\"}".formatted(Math.abs(UUID.randomUUID().hashCode() % 1000))))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(delete("/api/v1/fleet/customers/{id}", clienteId)

@@ -202,6 +202,6 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
     }
 
     private String placa() {
-        return "ABC-" + (Math.abs(UUID.randomUUID().hashCode() % 1000));
+        return String.format("ABC-%03d", Math.abs(UUID.randomUUID().hashCode() % 1000));
     }
 }
