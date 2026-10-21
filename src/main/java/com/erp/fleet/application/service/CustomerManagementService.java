@@ -1,5 +1,6 @@
 package com.erp.fleet.application.service;
 
+import com.erp.fleet.application.logging.SecurityEventLogger;
 import com.erp.fleet.application.dto.command.RegisterCustomerCommand;
 import com.erp.fleet.application.dto.command.UpdateCustomerCommand;
 import com.erp.fleet.application.dto.result.CustomerResult;
@@ -47,7 +48,11 @@ public class CustomerManagementService implements
             }
             DocNumber docNumber = DocNumber.of(cmd.docNumber(), cmd.docType());
             Customer customer = Customer.create(tenantId, cmd.fullName(), cmd.email(), cmd.phone(), docNumber);
-            return toResult(customerRepository.save(customer));
+            CustomerResult resultado = toResult(customerRepository.save(customer));
+            SecurityEventLogger.registrar("CLIENTE_ALTA", tenantId.getValue(), null,
+                    org.slf4j.MDC.get("trace_id"), "OK",
+                    java.util.Map.of("cliente_id", resultado.id().toString()));
+            return resultado;
         });
     }
 
@@ -96,6 +101,9 @@ public class CustomerManagementService implements
 
             customer.deactivate();
             customerRepository.save(customer);
+            SecurityEventLogger.registrar("CLIENTE_BAJA", taller.getValue(), null,
+                    org.slf4j.MDC.get("trace_id"), "OK",
+                    java.util.Map.of("cliente_id", customerId.toString()));
         });
     }
 

@@ -51,6 +51,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
         String tenantHeader = request.getHeader("X-Tenant-ID");
+        String traceId = trazaDe(request);
+
+        // La traza y el taller van al MDC: cada linea del registro de la
+        // peticion dice de quien es y de que traza forma parte.
+        org.slf4j.MDC.put("trace_id", traceId);
+        org.slf4j.MDC.put("tenant_id", "-");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
@@ -106,6 +112,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 TenantContextHolder.setTenantId(tenantId);
+                org.slf4j.MDC.put("tenant_id", tenantId.toString());
 
                 List<?> rolesList = claims.getClaim("roles") instanceof List<?> list ? list : List.of();
                 List<SimpleGrantedAuthority> authorities = rolesList.stream()
@@ -129,6 +136,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } finally {
             TenantContextHolder.clear();
             SecurityContextHolder.clearContext();
+            org.slf4j.MDC.remove("tenant_id");
+            org.slf4j.MDC.remove("trace_id");
         }
+    }
+
+    /**
+     * Identificador de traza de la peticion.
+     *
+     * <p>El borde propaga la traza; si no llega, se genera una, para que
+     * cada peticion tenga una traza con la que poder seguirla.
+     */
+    private String trazaDe(HttpServletRequest request) {
+        String traza = request.getHeader("X-Trace-ID");
+        if (traza == null || traza.isBlank()) {
+            traza = request.getHeader("traceparent");
+        }
+        return traza != null && !traza.isBlank() ? traza.trim() : UUID.randomUUID().toString();
     }
 }

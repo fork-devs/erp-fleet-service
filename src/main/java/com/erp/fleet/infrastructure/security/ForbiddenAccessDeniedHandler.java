@@ -2,8 +2,6 @@ package com.erp.fleet.infrastructure.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -24,13 +22,20 @@ import java.util.Map;
 @Component
 public class ForbiddenAccessDeniedHandler implements AccessDeniedHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ForbiddenAccessDeniedHandler.class);
-
     @Override
     public void handle(HttpServletRequest request,
                        HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws java.io.IOException {
-        log.warn("Acceso denegado por rol: {} {}", request.getMethod(), request.getRequestURI());
+        // El acceso denegado es un EVENTO de seguridad: se registra con el
+        // mismo esquema que el resto, para que se pueda consultar igual que
+        // los demas.
+        com.erp.fleet.application.logging.SecurityEventLogger.registrar(
+                "ACCESO_DENEGADO",
+                com.erp.fleet.infrastructure.persistence.rls.TenantContextHolder.getTenantId(),
+                null,
+                org.slf4j.MDC.get("trace_id"),
+                "DENEGADO",
+                java.util.Map.of("ruta", request.getRequestURI(), "metodo", request.getMethod()));
 
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
