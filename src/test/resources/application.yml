@@ -46,3 +46,20 @@ logging:
   level:
     root: WARN
     com.erp.fleet: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
+      group:
+        # La disponibilidad comprueba de verdad las dos dependencias: la base
+        # de datos y la cache de validaciones.
+        readiness:
+          include: readinessState, fleetReadiness

@@ -124,6 +124,16 @@ management:
   endpoint:
     health:
       show-details: always
+      show-components: always
+      probes:
+        enabled: true
+      group:
+        # La disponibilidad comprueba de verdad las dos dependencias: la base
+        # de datos y la cache de validaciones. El servicio informa de NO
+        # disponible cuando una de las dos falla, que es lo que un orquestador
+        # necesita para dejar de mandarle trafico.
+        readiness:
+          include: readinessState, fleetReadiness
 
 logging:
   level:
