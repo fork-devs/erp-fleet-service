@@ -3,6 +3,7 @@ package com.erp.fleet.infrastructure.config;
 import com.erp.fleet.application.service.CustomerManagementService;
 import com.erp.fleet.application.service.VehicleManagementService;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
+import com.erp.fleet.domain.port.UnitOfWork;
 import com.erp.fleet.domain.port.VehicleRepositoryPort;
 import com.erp.fleet.infrastructure.security.JwksKeyManager;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,13 +17,17 @@ import java.util.Arrays;
 public class ApplicationServiceConfig {
 
     @Bean
-    public CustomerManagementService customerManagementService(CustomerRepositoryPort port) {
-        return new CustomerManagementService(port);
+    public CustomerManagementService customerManagementService(CustomerRepositoryPort port,
+                                                                VehicleRepositoryPort vehiclePort,
+                                                                UnitOfWork unitOfWork) {
+        return new CustomerManagementService(port, vehiclePort, unitOfWork);
     }
 
     @Bean
-    public VehicleManagementService vehicleManagementService(VehicleRepositoryPort port) {
-        return new VehicleManagementService(port);
+    public VehicleManagementService vehicleManagementService(VehicleRepositoryPort port,
+                                                            CustomerRepositoryPort customerPort,
+                                                            UnitOfWork unitOfWork) {
+        return new VehicleManagementService(port, customerPort, unitOfWork);
     }
 
     /**
