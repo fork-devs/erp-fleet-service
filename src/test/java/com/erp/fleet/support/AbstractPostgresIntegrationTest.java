@@ -32,5 +32,17 @@ public abstract class AbstractPostgresIntegrationTest {
 
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         registry.add("spring.flyway.enabled", () -> "true");
+
+        // El servicio valida el token contra el JWKS del emisor de
+        // credenciales. Los tests levantan su propio emisor, de modo que los
+        // tokens que se usan estan realmente firmados.
+        registry.add("erp.auth.jwks-url", TestJwksServer::jwksUrl);
+
+        // El servicio llama al hub de integraciones para validar identidad y
+        // vehiculo. Los tests levantan su propio hub, de modo que se comprueba
+        // el cableado real y no una simulacion.
+        registry.add("erp.integration-hub.url", TestHubServer::baseUrl);
+        registry.add("erp.integration-hub.key", () -> "test_fleet_internal_key");
+        registry.add("erp.integration-hub.service-name", () -> "erp-fleet-service");
     }
 }

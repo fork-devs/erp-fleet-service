@@ -71,6 +71,9 @@ erp:
     url: ${INTEGRATION_HUB_URL:https://integration-hub.erp-automotriz.com}
     key: ${INTEGRATION_HUB_KEY:}
     service-name: ${INTEGRATION_HUB_SERVICE_NAME:erp-fleet-service}
+  cors:
+    # Lista explicita de origenes permitidos. No se admite el comodin.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
   cache:
     # Vigencia de la cache de validaciones correctas.
     ruc-ttl: ${VALIDACION_CACHE_RUC_TTL:30d}

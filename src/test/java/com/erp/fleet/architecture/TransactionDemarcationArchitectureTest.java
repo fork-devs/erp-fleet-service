@@ -115,6 +115,37 @@ class TransactionDemarcationArchitectureTest {
         }
     }
 
+    /**
+     * La capa de aplicacion no depende de la infraestructura.
+     *
+     * <p>Es la regla que sostiene la arquitectura: los casos de uso dependen de
+     * puertos del DOMINIO, no de adaptadores. Un import de infraestructura
+     * significa que el caso de uso sabe COMO se hace algo, y no solo QUE se
+     * hace: el dia que haya dos implementaciones —un cache en Redis y otro en
+     * memoria, un hub y un simulador— el caso de uso no podria elegir.
+     */
+    @Test
+    @DisplayName("Ningun caso de uso importa la infraestructura")
+    void ningunCasoDeUsoImportaLaInfraestructura() throws IOException {
+        List<String> infracciones = new ArrayList<>();
+
+        for (Path fichero : ficherosJava(APLICACION)) {
+            List<String> lineas = Files.readAllLines(fichero, StandardCharsets.UTF_8);
+            for (int i = 0; i < lineas.size(); i++) {
+                String linea = lineas.get(i).trim();
+                if (linea.startsWith("import com.erp.fleet.infrastructure")) {
+                    infracciones.add(nombre(fichero) + ":" + (i + 1) + "  " + linea);
+                }
+            }
+        }
+
+        if (!infracciones.isEmpty()) {
+            fail("La capa de aplicacion debe depender de los puertos del dominio, no de los "
+                    + "adaptadores: los casos de uso no saben COMO se hace, solo QUE se hace.\n"
+                    + String.join("\n", infracciones));
+        }
+    }
+
     private List<Path> ficherosJava(Path directorio) throws IOException {
         if (!Files.isDirectory(directorio)) {
             fail("No se encuentra el directorio " + directorio.toAbsolutePath()
