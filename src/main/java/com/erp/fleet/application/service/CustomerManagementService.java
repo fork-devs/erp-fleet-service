@@ -8,6 +8,7 @@ import com.erp.fleet.application.usecase.GetCustomerUseCase;
 import com.erp.fleet.application.usecase.RegisterCustomerUseCase;
 import com.erp.fleet.application.usecase.UpdateCustomerUseCase;
 import com.erp.fleet.domain.exception.CustomerNotFoundException;
+import com.erp.fleet.domain.exception.CustomerWithVehiclesException;
 import com.erp.fleet.domain.exception.DocAlreadyExistsException;
 import com.erp.fleet.domain.model.Customer;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
@@ -77,7 +78,10 @@ public class CustomerManagementService implements
     }
 
     /**
-     * La baja es LOGICA: el registro se conserva.
+     * La baja es LOGICA: el registro se conserva. Un cliente con vehiculos
+     * asociados no se puede dar de baja: los vehiculos seguirian apuntando a
+     * un cliente dado de baja, y la orden de trabajo de un taller no puede
+     * quedarse sin propietario.
      */
     @Override
     public void deactivate(UUID customerId, UUID tenantId) {
@@ -85,6 +89,11 @@ public class CustomerManagementService implements
             TenantId taller = new TenantId(tenantId);
             Customer customer = customerRepository.findById(new CustomerId(customerId), taller)
                     .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));
+
+            if (!vehicleRepository.findByCustomerId(new CustomerId(customerId), taller).isEmpty()) {
+                throw new CustomerWithVehiclesException(customerId.toString());
+            }
+
             customer.deactivate();
             customerRepository.save(customer);
         });
