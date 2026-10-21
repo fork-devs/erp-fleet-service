@@ -78,6 +78,12 @@ erp:
     # Vigencia de la cache de validaciones correctas.
     ruc-ttl: ${VALIDACION_CACHE_RUC_TTL:30d}
     placa-ttl: ${VALIDACION_CACHE_PLACA_TTL:7d}
+  platform-role:
+    # Rol con BYPASSRLS, usado EXCLUSIVAMENTE por el barrido de revalidacion,
+    # que recorre los talleres con registros pendientes y todavia no conoce el
+    # taller de cada uno. Su credencial vive separada de la de la aplicacion.
+    user: ${ERP_PLATFORM_DB_USER:erp_fleet_platform}
+    password: ${ERP_PLATFORM_DB_PASSWORD:}
   revalidacion:
     # Barrido de revalidacion: como maximo esta cantidad de registros por
     # taller y por ejecucion, para no agotar la cuota de validacion del hub,

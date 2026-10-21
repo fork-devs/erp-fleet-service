@@ -1,9 +1,11 @@
 package com.erp.fleet.infrastructure.config;
 
 import com.erp.fleet.application.service.CustomerManagementService;
+import com.erp.fleet.application.service.RevalidacionService;
 import com.erp.fleet.application.service.ValidacionService;
 import com.erp.fleet.application.service.VehicleManagementService;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
+import com.erp.fleet.domain.port.PendientesValidacionPort;
 import com.erp.fleet.domain.port.UnitOfWork;
 import com.erp.fleet.domain.port.VehicleRepositoryPort;
 import com.erp.fleet.infrastructure.cache.ValidacionCacheAdapter;
@@ -12,6 +14,7 @@ import com.erp.fleet.infrastructure.security.JwksKeyManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.core.env.Environment;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -20,6 +23,7 @@ import java.time.Duration;
 import java.util.Arrays;
 
 @Configuration
+@EnableScheduling
 public class ApplicationServiceConfig {
 
     @Bean
@@ -45,6 +49,14 @@ public class ApplicationServiceConfig {
                                                UnitOfWork unitOfWork) {
         return new ValidacionService(customerRepository, vehicleRepository, validacionIdentidad,
                 validacionVehiculo, cache, unitOfWork);
+    }
+
+    @Bean
+    public RevalidacionService revalidacionService(PendientesValidacionPort pendientes,
+                                                   com.erp.fleet.domain.port.TenantContextPort tenantContext,
+                                                   com.erp.fleet.application.usecase.ValidarClienteUseCase validarCliente,
+                                                   com.erp.fleet.application.usecase.ValidarVehiculoUseCase validarVehiculo) {
+        return new RevalidacionService(pendientes, tenantContext, validarCliente, validarVehiculo);
     }
 
     /**

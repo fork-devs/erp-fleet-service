@@ -41,6 +41,12 @@ public abstract class AbstractPostgresIntegrationTest {
         // El servicio llama al hub de integraciones para validar identidad y
         // vehiculo. Los tests levantan su propio hub, de modo que se comprueba
         // el cableado real y no una simulacion.
+        // El barrido de revalidacion recorre los talleres con registros
+        // pendientes: necesita el rol de plataforma, con su credencial
+        // separada de la de la aplicacion.
+        registry.add("erp.platform-role.user", EmbeddedPostgresSupport::platformRole);
+        registry.add("erp.platform-role.password", EmbeddedPostgresSupport::platformPassword);
+
         registry.add("erp.integration-hub.url", TestHubServer::baseUrl);
         registry.add("erp.integration-hub.key", () -> "test_fleet_internal_key");
         registry.add("erp.integration-hub.service-name", () -> "erp-fleet-service");

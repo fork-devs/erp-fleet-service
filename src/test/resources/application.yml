@@ -27,7 +27,9 @@ erp:
     placa-ttl: 7d
   revalidacion:
     max-por-taller: 10
-    intervalo: 60s
+    # El barrido programado no se dispara durante los tests: el test del
+    # barrido lo invoca de forma explicita.
+    intervalo: 1h
 
 resilience4j:
   circuitbreaker:
