@@ -100,22 +100,30 @@ Cumpliendo el principio de **Database-per-Service**, `erp-fleet-service` posee s
 * **Motor:** PostgreSQL 16
 * **Nombre de BD:** `erp_fleet_db`
 * **Puerto:** 5435
-* **Herramienta de migración:** Flyway (`V1__create_customers_table.sql`, `V2__create_vehicles_table.sql`)
+* **Herramienta de migración:** Flyway (`V1__create_customers_table.sql`, `V2__create_vehicles_table.sql`, `V3__rls_y_roles_fleet.sql`, `V4__validation_result_columns.sql`)
+* **Rol de ejecución:** `erp_fleet_app`, que **no** es propietario de las tablas y **no** tiene `BYPASSRLS`. El propietario (`erp_fleet_owner`) lo usan solo las migraciones.
+* **Rol de plataforma:** `erp_fleet_platform`, con `BYPASSRLS`, usado **únicamente** por el barrido de revalidación, que recorre los talleres con registros pendientes. Su credencial vive separada de la de la aplicación.
 
 ### 3.2. Aislamiento con Row Level Security (RLS)
 Para garantizar la estricta separación de datos entre diferentes talleres (inquilinos):
 1. Todas las tablas incluyen una columna obligatoria `tenant_id UUID NOT NULL`.
-2. Las políticas de PostgreSQL RLS aíslan cada fila automáticamente:
+2. Las políticas de PostgreSQL RLS aíslan cada fila automáticamente. La RLS se **habilita y se fuerza**: `FORCE` por sí solo no la habilita, solo obliga a que la política se aplique también al propietario, que es el rol que la eludía.
    ```sql
    ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE customers FORCE  ROW LEVEL SECURITY;
    CREATE POLICY customer_tenant_isolation ON customers
-       USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
+       USING      (tenant_id = current_setting('app.tenant_id')::uuid)
+       WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
 
    ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE vehicles FORCE  ROW LEVEL SECURITY;
    CREATE POLICY vehicle_tenant_isolation ON vehicles
-       USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
+       USING      (tenant_id = current_setting('app.tenant_id')::uuid)
+       WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
    ```
-3. A nivel de aplicación, todas las consultas y repositorios Spring Data filtran obligatoriamente por `tenant_id` recibido desde el encabezado verificado.
+3. El contexto de taller se lee **sin** el flag `missing_ok`: sin contexto, la consulta falla de forma explícita en lugar de devolver cero filas en silencio. El aislamiento no se relaja calladamente.
+4. El contexto lo establece el **principal autenticado**, nunca la fila que se opera: si lo fijase la fila, la comprobación de la política sería siempre satisfactoria y el aislamiento no aislaría nada. Se aplica con `SET LOCAL` **dentro** de la transacción, con el orden de advice declarado (el interceptor transaccional en el orden 0 y el aspecto de RLS en el 1).
+5. La aplicación conecta con `erp_fleet_app`, que no es propietario de las tablas. Los repositorios Spring Data filtran además por `tenant_id` como segunda barrera, no como única.
 
 ### 3.3. Relación Lógica entre Entidades
 No existen claves foráneas (`FOREIGN KEY`) cruzadas entre microservicios:
