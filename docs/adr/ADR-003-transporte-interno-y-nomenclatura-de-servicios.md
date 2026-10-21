@@ -4,6 +4,7 @@
 - **Fecha:** 2026-10-21
 - **Change:** `add-fleet-service`
 - **Ámbito:** `erp-fleet-service`, `erp-api-gateway` y `erp-integration-hub`
+- **Copia canónica:** `erp-fleet-service/docs/adr/ADR-003-transporte-interno-y-nomenclatura-de-servicios.md` (este repositorio; los demás guardan un espejo)
 
 ## Contexto
 
