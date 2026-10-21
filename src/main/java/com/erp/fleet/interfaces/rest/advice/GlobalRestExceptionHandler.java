@@ -130,7 +130,7 @@ public class GlobalRestExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex, WebRequest request) {
-        ex.printStackTrace();
+        log.error("Error no previsto en {} {}", request.getDescription(false), ex.getMessage(), ex);
         return problema("FLEET_INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR,
                 "Se ha producido un error interno", request);
     }
