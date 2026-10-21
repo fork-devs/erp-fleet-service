@@ -45,6 +45,13 @@ spring:
     # del rol de ejecucion de la aplicacion.
     user: ${SPRING_FLYWAY_USER:erp_fleet_owner}
     password: ${SPRING_FLYWAY_PASSWORD:}
+    placeholders:
+      # Contrasena del rol de EJECUCION de la aplicacion, que crea la
+      # migracion V3. Sin privilegios de propietario y sin BYPASSRLS.
+      appRolePassword: ${ERP_APP_DB_PASSWORD:}
+      # Contrasena del rol de PLATAFORMA, usado solo por el barrido de
+      # revalidacion, que recorre los talleres con registros pendientes.
+      platformRolePassword: ${ERP_PLATFORM_DB_PASSWORD:}
 
   data:
     redis:
