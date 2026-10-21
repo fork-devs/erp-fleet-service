@@ -4,6 +4,7 @@ import com.erp.fleet.application.dto.command.RegisterVehicleCommand;
 import com.erp.fleet.application.dto.command.UpdateVehicleCommand;
 import com.erp.fleet.application.dto.result.VehicleResult;
 import com.erp.fleet.application.usecase.GetVehicleUseCase;
+import com.erp.fleet.application.usecase.ReintentarValidacionUseCase;
 import com.erp.fleet.application.usecase.RegisterVehicleUseCase;
 import com.erp.fleet.application.usecase.UpdateVehicleUseCase;
 import com.erp.fleet.interfaces.rest.dto.request.RegisterVehicleRequest;
@@ -36,20 +37,23 @@ import java.util.stream.Collectors;
  * contrasta con el token.
  */
 @RestController
-@RequestMapping("/api/v1/vehicles")
+@RequestMapping("/api/v1/fleet/vehicles")
 @Tag(name = "Vehicles", description = "Gestión de vehículos del taller")
 public class VehicleController {
 
     private final RegisterVehicleUseCase registerVehicleUseCase;
     private final GetVehicleUseCase getVehicleUseCase;
     private final UpdateVehicleUseCase updateVehicleUseCase;
+    private final ReintentarValidacionUseCase reintentarValidacionUseCase;
 
     public VehicleController(RegisterVehicleUseCase registerVehicleUseCase,
                               GetVehicleUseCase getVehicleUseCase,
-                              UpdateVehicleUseCase updateVehicleUseCase) {
+                              UpdateVehicleUseCase updateVehicleUseCase,
+                              ReintentarValidacionUseCase reintentarValidacionUseCase) {
         this.registerVehicleUseCase = registerVehicleUseCase;
         this.getVehicleUseCase = getVehicleUseCase;
         this.updateVehicleUseCase = updateVehicleUseCase;
+        this.reintentarValidacionUseCase = reintentarValidacionUseCase;
     }
 
     @PostMapping
@@ -95,6 +99,21 @@ public class VehicleController {
         VehicleResult result = updateVehicleUseCase.update(
                 new UpdateVehicleCommand(id, CurrentTenant.id(), request.brand(), request.model(), request.year(), request.vin()));
         return ResponseEntity.ok(toResponse(result));
+    }
+
+    /**
+     * Reintento a demanda de la validacion pendiente.
+     *
+     * <p>Un vehiculo ya validado u observado no se vuelve a consultar: no hay
+     * nada pendiente de validar.
+     */
+    @PostMapping("/{id}/validate")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @Operation(summary = "Reintentar la validacion del vehiculo",
+            description = "Consulta al hub la placa pendiente. Un vehiculo ya validado no se vuelve a consultar")
+    public ResponseEntity<Void> reintentarValidacion(@PathVariable UUID id) {
+        boolean reintentado = reintentarValidacionUseCase.reintentarVehiculo(id, CurrentTenant.id());
+        return reintentado ? ResponseEntity.noContent().build() : ResponseEntity.ok().build();
     }
 
     private VehicleResponse toResponse(VehicleResult r) {

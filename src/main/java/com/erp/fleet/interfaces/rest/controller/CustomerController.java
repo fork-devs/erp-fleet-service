@@ -5,6 +5,7 @@ import com.erp.fleet.application.dto.command.UpdateCustomerCommand;
 import com.erp.fleet.application.dto.result.CustomerResult;
 import com.erp.fleet.application.usecase.DeactivateCustomerUseCase;
 import com.erp.fleet.application.usecase.GetCustomerUseCase;
+import com.erp.fleet.application.usecase.ReintentarValidacionUseCase;
 import com.erp.fleet.application.usecase.RegisterCustomerUseCase;
 import com.erp.fleet.application.usecase.UpdateCustomerUseCase;
 import com.erp.fleet.interfaces.rest.dto.request.RegisterCustomerRequest;
@@ -38,7 +39,7 @@ import java.util.stream.Collectors;
  * contrasta con el token.
  */
 @RestController
-@RequestMapping("/api/v1/customers")
+@RequestMapping("/api/v1/fleet/customers")
 @Tag(name = "Customers", description = "Gestión de clientes del taller")
 public class CustomerController {
 
@@ -46,15 +47,18 @@ public class CustomerController {
     private final GetCustomerUseCase getCustomerUseCase;
     private final UpdateCustomerUseCase updateCustomerUseCase;
     private final DeactivateCustomerUseCase deactivateCustomerUseCase;
+    private final ReintentarValidacionUseCase reintentarValidacionUseCase;
 
     public CustomerController(RegisterCustomerUseCase registerCustomerUseCase,
                                GetCustomerUseCase getCustomerUseCase,
                                UpdateCustomerUseCase updateCustomerUseCase,
-                               DeactivateCustomerUseCase deactivateCustomerUseCase) {
+                               DeactivateCustomerUseCase deactivateCustomerUseCase,
+                               ReintentarValidacionUseCase reintentarValidacionUseCase) {
         this.registerCustomerUseCase = registerCustomerUseCase;
         this.getCustomerUseCase = getCustomerUseCase;
         this.updateCustomerUseCase = updateCustomerUseCase;
         this.deactivateCustomerUseCase = deactivateCustomerUseCase;
+        this.reintentarValidacionUseCase = reintentarValidacionUseCase;
     }
 
     @PostMapping
@@ -100,6 +104,21 @@ public class CustomerController {
     public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
         deactivateCustomerUseCase.deactivate(id, CurrentTenant.id());
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Reintento a demanda de la validacion pendiente.
+     *
+     * <p>Un cliente ya validado u observado no se vuelve a consultar: no hay
+     * nada pendiente de validar.
+     */
+    @PostMapping("/{id}/validate")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @Operation(summary = "Reintentar la validacion del cliente",
+            description = "Consulta al hub el documento pendiente. Un cliente ya validado no se vuelve a consultar")
+    public ResponseEntity<Void> reintentarValidacion(@PathVariable UUID id) {
+        boolean reintentado = reintentarValidacionUseCase.reintentarCliente(id, CurrentTenant.id());
+        return reintentado ? ResponseEntity.noContent().build() : ResponseEntity.ok().build();
     }
 
     private CustomerResponse toResponse(CustomerResult r) {

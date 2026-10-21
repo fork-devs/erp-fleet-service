@@ -37,7 +37,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Una peticion sin token se rechaza y no escribe nada")
     void unaPeticionSinTokenSeRechaza() throws Exception {
-        mockMvc.perform(post("/api/v1/customers")
+        mockMvc.perform(post("/api/v1/fleet/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente sin token\",\"docType\":\"DNI\",\"docNumber\":\"99999999\"}"))
                 .andExpect(status().isUnauthorized());
@@ -81,7 +81,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         String token = TestJwksServer.signToken(UUID.randomUUID(), List.of("ADMIN_TALLER"));
         String adulterado = token.substring(0, token.length() - 4) + "abcd";
 
-        mockMvc.perform(get("/api/v1/customers").header("Authorization", "Bearer " + adulterado))
+        mockMvc.perform(get("/api/v1/fleet/customers").header("Authorization", "Bearer " + adulterado))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -91,7 +91,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         String token = TestJwksServer.signToken(taller, List.of("MECANICO"));
 
-        mockMvc.perform(post("/api/v1/customers")
+        mockMvc.perform(post("/api/v1/fleet/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente de mecanico\",\"docType\":\"DNI\",\"docNumber\":\"88888888\"}"))
@@ -104,7 +104,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         String token = TestJwksServer.signToken(taller, List.of("MECANICO"));
 
-        mockMvc.perform(get("/api/v1/customers").header("Authorization", "Bearer " + token))
+        mockMvc.perform(get("/api/v1/fleet/customers").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
     }
 
@@ -114,7 +114,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         String token = TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"));
 
-        mockMvc.perform(post("/api/v1/customers")
+        mockMvc.perform(post("/api/v1/fleet/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente de administrador\",\"docType\":\"DNI\",\"docNumber\":\"77777777\"}"))
@@ -129,7 +129,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         String token = TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"));
         String documento = "666666" + Math.abs(UUID.randomUUID().hashCode() % 1000);
 
-        mockMvc.perform(post("/api/v1/customers")
+        mockMvc.perform(post("/api/v1/fleet/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente con taller en el cuerpo\",\"docType\":\"DNI\","
@@ -149,7 +149,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         UUID otroTaller = UUID.randomUUID();
         String token = TestJwksServer.signToken(tallerDelToken, List.of("ADMIN_TALLER"));
 
-        mockMvc.perform(get("/api/v1/customers")
+        mockMvc.perform(get("/api/v1/fleet/customers")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Tenant-ID", otroTaller.toString()))
                 .andExpect(status().isForbidden());
@@ -161,7 +161,7 @@ class FleetSecurityTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         String token = TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"));
 
-        mockMvc.perform(get("/api/v1/customers")
+        mockMvc.perform(get("/api/v1/fleet/customers")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Tenant-ID", taller.toString()))
                 .andExpect(status().isOk());
