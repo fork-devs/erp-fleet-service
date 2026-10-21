@@ -144,15 +144,18 @@ A continuación se detalla cómo se integra `erp-fleet-service` con los demás c
      * `X-Tenant-ID`: UUID del taller autenticado.
      * `X-User-ID`: UUID del usuario emisor.
      * `X-User-Roles`: Roles asignados (ej. `MECANICO`, `ADMIN`).
-* **Seguridad Interna:** `erp-fleet-service` opera de manera *stateless*, confiando en la red interna protegida y consumiendo directamente `@RequestHeader("X-Tenant-ID") UUID tenantId`.
+* **Seguridad Interna:** `erp-fleet-service` opera de manera *stateless* y **valida el token de acceso** contra el conjunto de claves del emisor (`/.well-known/jwks.json`). El taller se deriva **exclusivamente** del claim `tenant_id` del token verificado: la cabecera `X-Tenant-ID` es una **pista**, no una autoridad, y el servicio la contrasta con el token y rechaza la petición cuando no coinciden. Confiar en la red interna no es una autorización: el servicio es alcanzable directamente, y quien lo alcance podría elegir el taller.
 
 ### 4.2. Conexión Salida: `erp-fleet-service` → `erp-integration-hub` (ACL)
 * **Objetivo:** Validación de autenticidad de documentos (DNI/RUC con RENIEC/SUNAT) y antecedentes de placa/VIN (MTC).
 * **Flujo Asíncrono no bloqueante:**
   1. Cuando un usuario registra un cliente o vehículo en `erp-fleet-service`, el registro se persiste inmediatamente en la base de datos con `validation_status = 'PENDING'`.
-  2. `erp-fleet-service` emite una solicitud asíncrona hacia `erp-integration-hub` (puerto 8085).
-  3. Si la pasarela externa responde con éxito, se actualiza a `VALIDATED`.
-  4. Si RENIEC o SUNAT están caídos, la operación del taller no se detiene; el registro permanece en `PENDING` para reintentos posteriores gracias al Circuit Breaker de Resilience4j.
+  2. `erp-fleet-service` consulta a `erp-integration-hub` por **HTTPS**, con su **propia clave de servicio**; el hub le concede el rol acotado `ROLE_FLEET`.
+  3. Si el hub declara el documento o la placa válidos, el registro pasa a `VALID` y se guardan los datos que informa.
+  4. Si el hub informa una discrepancia, el registro pasa a `OBSERVED`: el taller tiene que revisarlo. **No** es un fallo de la validación.
+  5. Si el hub no está disponible, la operación del taller **no se detiene**: el registro permanece en `PENDING`, se cuenta el intento y se programa el siguiente. El **Circuit Breaker** de Resilience4j vive en fleet, porque el degradado es una decisión de quien llama: un circuito dentro del hub solo podría negarse a responder, no comunicar al que llama que debe degradar.
+  6. Un **barrido programado** revalida los registros pendientes cuya espera ha vencido, con un **límite por taller** para no agotar la cuota de validación del hub, que se comparte entre talleres.
+  7. Los resultados correctos se sirven con **caché** (Redis): un RUC 30 días y una placa 7 días.
 
 ### 4.3. Conexión Salida / Consumo: `erp-work-order-service` → `erp-fleet-service`
 * **Objetivo:** Creación y asociación de órdenes de servicio automotriz.
@@ -170,18 +173,45 @@ Todos los endpoints están documentados bajo el estándar OpenAPI 3.0 / Swagger 
 
 ### Matriz de Endpoints
 
-| Método | Endpoint | Descripción | Header Obligatorio |
+Todos los endpoints se publican bajo **`/api/v1/fleet`**, que es el `path-prefix`
+que el gateway reenvía **sin quitarlo**: el prefijo del gateway *es* la ruta
+del servicio. Un endpoint fuera de ese prefijo es inalcanzable desde el
+gateway.
+
+Todos exigen un **token de acceso verificado**. El taller se deriva del token;
+la cabecera `X-Tenant-ID` es una pista que se contrasta con él.
+
+| Método | Endpoint | Descripción | Rol |
 |---|---|---|---|
-| **POST** | `/api/v1/customers` | Registrar un nuevo cliente en el taller | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/customers` | Listar todos los clientes del taller | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/customers/{id}` | Obtener detalle de cliente por ID | `X-Tenant-ID: <UUID>` |
-| **PUT** | `/api/v1/customers/{id}` | Actualizar datos de contacto del cliente | `X-Tenant-ID: <UUID>` |
-| **DELETE** | `/api/v1/customers/{id}` | Desactivar cliente (borrado lógico) | `X-Tenant-ID: <UUID>` |
-| **POST** | `/api/v1/vehicles` | Registrar nuevo vehículo asociado a un cliente | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/vehicles` | Listar todos los vehículos registrados en el taller | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/vehicles/{id}` | Obtener vehículo por ID | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/vehicles/customer/{customerId}` | Listar flota vehicular de un cliente específico | `X-Tenant-ID: <UUID>` |
-| **PUT** | `/api/v1/vehicles/{id}` | Actualizar datos del vehículo (año, modelo, VIN) | `X-Tenant-ID: <UUID>` |
+| **POST** | `/api/v1/fleet/customers` | Registrar un nuevo cliente en el taller | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **GET** | `/api/v1/fleet/customers` | Listar todos los clientes del taller | + `MECANICO` |
+| **GET** | `/api/v1/fleet/customers/{id}` | Obtener detalle de cliente por ID | + `MECANICO` |
+| **PUT** | `/api/v1/fleet/customers/{id}` | Actualizar datos de contacto del cliente | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **DELETE** | `/api/v1/fleet/customers/{id}` | Desactivar cliente (baja lógica; no admite vehículos asociados) | `SUPERADMIN`, `ADMIN_TALLER` |
+| **POST** | `/api/v1/fleet/customers/{id}/validate` | Reintentar la validación pendiente del cliente | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **POST** | `/api/v1/fleet/vehicles` | Registrar nuevo vehículo asociado a un cliente | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **GET** | `/api/v1/fleet/vehicles` | Listar todos los vehículos registrados en el taller | + `MECANICO` |
+| **GET** | `/api/v1/fleet/vehicles/{id}` | Obtener vehículo por ID | + `MECANICO` |
+| **GET** | `/api/v1/fleet/vehicles/customer/{customerId}` | Listar flota vehicular de un cliente específico | + `MECANICO` |
+| **PUT** | `/api/v1/fleet/vehicles/{id}` | Actualizar datos del vehículo (año, modelo, VIN) | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **POST** | `/api/v1/fleet/vehicles/{id}/validate` | Reintentar la validación pendiente del vehículo | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+
+**Errores.** El cuerpo del error es un `ProblemDetail` (RFC 9457) con un código
+estable por familia (`code`) y el taller (`tenant_id`). El cliente puede
+distinguirlas sin adivinar:
+
+| Código | HTTP | Significado |
+|---|---|---|
+| `FLEET_DOC_DUPLICADO` | 409 | Ya existe un cliente con ese documento **en el taller** |
+| `FLEET_PLATE_DUPLICADO` | 409 | Ya existe un vehículo con esa placa **en el taller** |
+| `FLEET_CUSTOMER_HAS_VEHICLES` | 409 | El cliente tiene vehículos y no se puede dar de baja |
+| `FLEET_CUSTOMER_NOT_FOUND` | 404 | El cliente no existe en el taller |
+| `FLEET_VEHICLE_NOT_FOUND` | 404 | El vehículo no existe en el taller |
+| `FLEET_NOT_FOUND` | 404 | La ruta no existe |
+| `FLEET_ACCESS_DENIED` | 403 | El principal no tiene el rol que exige el endpoint |
+| `FLEET_UNAUTHENTICATED` | 401 | La petición no trae un token verificado |
+| `FLEET_VALIDATION_ERROR` | 400 | El cuerpo de la petición no es válido |
+| `FLEET_INTERNAL_ERROR` | 500 | Error no previsto (registrado con su traza) |
 
 ---
 
