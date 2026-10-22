@@ -1,0 +1,191 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+context: |
+  # Idioma
+  Todos los artefactos (proposal, specs, design, tasks) se redactan en español.
+
+  # Qué es este repositorio
+  Este repositorio contiene el servicio de clientes y parque automotor (Fleet)
+  del backend SaaS B2B multi-tenant para talleres automotrices en Perú
+  ("DriveOS Workshop"), que se despliega en el puerto 8083. Forma parte de un
+  conjunto de microservicios independientes, cada uno en su propio repositorio
+  git, con su propia base de datos (`erp_fleet_db`) y su propio ciclo de
+  despliegue. Alta, consulta, actualización y baja lógica de clientes
+  (DNI/RUC) y vehículos (placa/VIN), con validación de identidad y de vehículo
+  contra el `erp-integration-hub` que no bloquea el registro del taller.
+
+  Las especificaciones de `openspec/specs/` describen el CONTRATO de las
+  capacidades del sistema, que en varios casos abarcan más de un microservicio.
+  Este repositorio guarda la copia de los changes que le afectan, de modo que
+  quien trabaje aquí tenga el contrato completo a su alcance.
+
+  # Arquitectura obligatoria (4 capas, Ports & Adapters)
+  Cada microservicio Java sigue esta estructura, y los cambios no deben romperla:
+    domain/          modelo de dominio, Value Objects, puertos de salida, eventos.
+                     PROHIBIDO cualquier import de Spring, Jakarta Persistence,
+                     Jackson, Lombok o cualquier framework. Cero anotaciones.
+    application/     casos de uso y servicios de orquestación. Dependen SOLO de
+                     `domain/port`. PROHIBIDO importar `infrastructure`.
+    infrastructure/  adaptadores: persistencia JPA, clientes HTTP externos, cache,
+                     seguridad, messaging, schedulers. Único lugar con framework.
+    interfaces/      controladores REST, DTOs request/response, manejo de errores.
+  Reglas derivadas de esa estructura:
+    - La lógica de negocio no vive en los controladores ni en los adapters.
+    - La demarcación transaccional se declara en la capa de aplicación, nunca
+      en los adapters de persistencia. Los adapters se unen a la transacción
+      abierta; no abren la suya. Se hace con el puerto `UnitOfWork` del
+      dominio, implementado con `TransactionTemplate`.
+    - Los servicios de aplicación se instancian como beans gestionados por Spring
+      (nunca con `new` en una clase `@Configuration`), para que el proxy AOP
+      funcione (`@PreAuthorize`, `@Retryable`, `@CircuitBreaker`).
+    - Los casos de uso se exponen como interfaces en `application/usecase`; los
+      controladores dependen de esas interfaces, nunca de un puerto de `domain`
+      ni de un repositorio.
+    - El mapeo entre entidad JPA y modelo de dominio va en
+      `infrastructure/persistence/mapper/`, no dentro del adapter.
+
+  # Rutas
+  - La API se publica bajo el prefijo `/api/v1/fleet`, que es el `path-prefix`
+    que el `erp-api-gateway` reenvía **sin quitarlo**. Los endpoints de
+    clientes son `/api/v1/fleet/customers` y los de vehículos
+    `/api/v1/fleet/vehicles`. Una ruta fuera de ese prefijo es inalcanzable
+    desde el gateway.
+
+  # Multi-inquilino
+  - `tenant_id` es obligatorio en toda entidad de negocio y en toda fila de tabla.
+  - El tenant se deriva EXCLUSIVAMENTE del token JWT verificado. Nunca de una
+    cabecera del cliente (`X-Tenant-ID` es una pista, no una autoridad) ni de un
+    campo del cuerpo de la petición. Si un request trae `tenant_id` en el body,
+    se ignora o se rechaza.
+  - Aislamiento en base de datos: PostgreSQL con Row-Level Security. La política
+    RLS es `USING (tenant_id = current_setting('app.tenant_id')::uuid)`. Requiere
+    `FORCE ROW LEVEL SECURITY` y que la aplicación conecte con un rol que NO sea
+    el propietario de las tablas, porque el owner bypasea RLS.
+  - `app.tenant_id` se establece con `SET LOCAL` dentro de la transacción activa.
+    Si no hay transacción, el aislamiento no está garantizado: fallar cerrado.
+
+  # Seguridad
+  - El claim de roles del JWT es `roles` (array). Ningún servicio puede leer un
+    claim `role` en singular.
+  - Cada endpoint declara el rol que exige. La escritura de clientes y vehículos
+    exige `SUPERADMIN`, `ADMIN_TALLER` o `ASESOR`; la lectura admite también
+    `MECANICO`. La denegación es `403`, distinguible de un fallo de la
+    operación.
+  - Se exige HTTPS (TLS) para el JWKS y para todo destino interno o externo.
+    `http://` solo en desarrollo local.
+  - El JWKS del emisor se publica en `/.well-known/jwks.json`.
+  - Ningún secreto (contraseñas, API keys, claves privadas) se escribe en el
+    código, en `application.yml` versionado ni en `.env.example`. Se resuelven
+    por variable de entorno o `vault:`.
+
+  # Integraciones externas
+  - El `erp-integration-hub` es el ÚNICO punto de salida a SUNAT/PSE, RENIEC,
+    Stripe y consulta vehicular. Ningún otro servicio los llama directamente.
+  - fleet llama al hub por **REST/HTTPS**, contra
+    `GET /api/v1/integrations/validate/ruc/{ruc}` y
+    `GET /api/v1/integrations/validate/placa/{placa}`. No hay gRPC.
+  - fleet se identifica ante el hub con su **propia clave** y su nombre de
+    servicio, y el hub le concede el rol acotado `ROLE_FLEET`. Con una clave
+    compartida, quien la posea puede declarar el nombre de otro servicio y
+    heredar sus roles.
+  - La validación **nunca bloquea el registro**: el alta se confirma con el
+    estado `PENDING` y la validación se intenta después. Si el hub no responde,
+    el registro permanece `PENDING` y se reintenta; el interruptor de circuito y
+    la degradación a `PENDING` viven en fleet, que es quien conoce el fallback.
+  - Toda llamada externa pasa por un puerto de dominio con un adapter, y
+    traduce el modelo externo a un modelo interno propio.
+
+  # Eventos
+  - fleet **no emite eventos de dominio** en esta versión: no hay consumidor.
+    Cuando exista el primero, el estado del registro y su evento se persistirán
+    juntos en la misma transacción local (Transactional Outbox) y un relay los
+    publicará a Kafka, nunca dentro de la transacción que los origina.
+
+  # Persistencia
+  - Flyway es el dueño del esquema. `ddl-auto: validate` en producción.
+  - `baseline-on-migrate: false`: el servicio es dueño de su esquema.
+  - Las migraciones se ejecutan también en los tests, contra PostgreSQL real.
+    Los tests en H2 con `create-drop` no detectan deriva entre entidad y
+    migración, y la RLS nunca llega a ejecutarse.
+  - Cada migración es reversible en su intención y no rompe en caliente.
+
+  # Testing
+  - Pirámide: unitarias de dominio puras (sin Spring) + integración con
+    PostgreSQL real + contrato de API + E2E de los caminos críticos.
+  - Todo cambio de comportamiento lleva su test. Una task de implementación
+    incluye la verificación de su propio test.
+  - Existe una suite de pruebas cross-tenant obligatoria para cualquier cambio
+    que toque aislamiento, autenticación o propagación de `tenant_id`.
+  - Cobertura mínima del 80% en la capa `domain/`, medida con JaCoCo.
+
+  # Convenciones de API
+  - REST versionado en la ruta (`/api/v1/...`). Errores con `ProblemDetail`
+    (RFC 9457) y un código de error estable por familia, legible por máquina.
+  - `tenant_id` viaja en los errores para que el frontend pueda mostrarlos sin
+    adivinar.
+  - OpenAPI se genera y se versiona; los contratos compartidos viven en un
+    paquete común, no se duplican servicio a servicio.
+
+  # Documentación
+  - `doc/arquitectura-y-conexiones.md` describe la arquitectura y las
+    conexiones del servicio. `docs/` en la raíz del workspace es la fuente de
+    verdad de la arquitectura y del estado de implementación del sistema
+    completo. OpenSpec describe LOS CAMBIOS; la documentación describe EL
+    SISTEMA. No deben contradecirse: si un change altera una decisión de
+    arquitectura, se actualiza también el documento correspondiente en la misma
+    entrega.
+
+  # Fuera de alcance de este repositorio (no se proponen changes para esto)
+  Los microservicios no construidos (`erp-inventory-service`,
+  `erp-work-order-service`, `erp-billing-service`, ingesta IoT en Go,
+  procesador IoT/analítica en Python) se proponen en batches posteriores.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+rules:
+  proposal:
+    - Cada item de "What Changes" referencia el hallazgo del reporte de estado
+      (`docs/doc-estado-implementacion.md`) que lo origina, con su identificador
+      (P0 5.x, P1 6.x) para que la trazabilidad sea verificable.
+    - Marcar explícitamente los cambios que rompen compatibilidad con
+      **BREAKING** (por ejemplo, cambiar el nombre de un claim JWT o de una
+      cabecera).
+  specs:
+    - Cada requisito SHALL/MUST debe ser verificable por un test automatizado
+      concreto; si no lo es, pertenece a design.md y no a la spec.
+    - Los escenarios que cubren un hallazgo de seguridad deben nombrar
+      explícitamente al actor y al tenant atacante, no a un "usuario genérico".
+  design:
+    - Cada decisión debe citar la alternativa descartada y el motivo, en línea
+      con la convención de ADR del proyecto.
+    - Cuando la decisión dependa de una elección entre microservicios, la
+      decisión debe quedar explícita y además quedar registrada como pregunta
+      abierta si aún no está tomada por el equipo.
+  tasks:
+    - Cada task debe nombrar el fichero o la clase affected para que sea
+      localizable sin volver a explorar el repositorio.
+    - Las tasks que cierran un P0 deben incluir la task de test de regresión
+      que lo demuestra, o declarar explícitamente por qué el P0 ya queda
+      cubierto por un test existente.
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+operations:
+  apply:
+    guidance:
+      - Cuando una task toque la demarcación transaccional, verificar al terminar
+        que la operación sigue siendo atómica (commit único) y que un fallo
+        intermedio no deja estado parcial observable.
+      - Al tocar el esquema, ejecutar las migraciones de Flyway contra
+        PostgreSQL real y no solo contra H2.
+      - No aceptar una task como completada si su verificación no se ejecutó y
+        se comprobó su resultado.
+  archive:
+    guidance:
+      - Al archivar, resumir qué hallazgos del reporte de estado quedaron
+        cerrados y cuáles se trasladaron a changes posteriores.

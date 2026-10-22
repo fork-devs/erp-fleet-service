@@ -1,0 +1,15 @@
+MVNW_REPOURL
+.mvn/wrapper/maven-wrapper.jar
+target/
+.env
+*.class
+*.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+.idea/
+*.iws
+*.iml
+*.ipr
+.classpath
+.project
+.settings/
