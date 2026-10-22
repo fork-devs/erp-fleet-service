@@ -16,7 +16,9 @@ public class CustomerPersistenceMapper {
                 c.getId().getValue(), c.getTenantId().getValue(),
                 c.getFullName(), c.getEmail(), c.getPhone(),
                 c.getDocNumber().getDocType(), c.getDocNumber().getValue(),
-                c.getValidationStatus().name(), c.getStatus().name(), c.getCreatedAt()
+                c.getValidationStatus().name(), c.getStatus().name(), c.getCreatedAt(),
+                c.getRazonSocial(), c.getEstadoRuc(), c.getCondicionRuc(), c.getDireccionFiscal(),
+                c.getValidatedAt(), c.getValidationAttempts(), c.getNextValidationAt()
         );
     }
 
@@ -26,7 +28,9 @@ public class CustomerPersistenceMapper {
                 e.getFullName(), e.getEmail(), e.getPhone(),
                 DocNumber.of(e.getDocNumber(), e.getDocType()),
                 ValidationStatus.valueOf(e.getValidationStatus()),
-                CustomerStatus.valueOf(e.getStatus()), e.getCreatedAt()
+                CustomerStatus.valueOf(e.getStatus()), e.getCreatedAt(),
+                e.getRazonSocial(), e.getEstadoRuc(), e.getCondicionRuc(), e.getDireccionFiscal(),
+                e.getValidatedAt(), e.getValidationAttempts(), e.getNextValidationAt()
         );
     }
 }

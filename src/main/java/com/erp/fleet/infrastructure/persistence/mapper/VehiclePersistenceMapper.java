@@ -16,7 +16,9 @@ public class VehiclePersistenceMapper {
         return new VehicleJpaEntity(
                 v.getId().getValue(), v.getTenantId().getValue(), v.getCustomerId().getValue(),
                 v.getPlate().getValue(), v.getBrand(), v.getModel(), v.getYear(), v.getVin(),
-                v.getValidationStatus().name(), v.getStatus().name(), v.getCreatedAt()
+                v.getValidationStatus().name(), v.getStatus().name(), v.getCreatedAt(),
+                v.getNumeroMotor(), v.getColor(), v.getCombustible(), v.getValidatedAt(),
+                v.getValidationAttempts(), v.getNextValidationAt()
         );
     }
 
@@ -25,7 +27,9 @@ public class VehiclePersistenceMapper {
                 new VehicleId(e.getId()), new TenantId(e.getTenantId()), new CustomerId(e.getCustomerId()),
                 Plate.of(e.getPlate()), e.getBrand(), e.getModel(), e.getYear(), e.getVin(),
                 ValidationStatus.valueOf(e.getValidationStatus()),
-                VehicleStatus.valueOf(e.getStatus()), e.getCreatedAt()
+                VehicleStatus.valueOf(e.getStatus()), e.getCreatedAt(),
+                e.getNumeroMotor(), e.getColor(), e.getCombustible(), e.getValidatedAt(),
+                e.getValidationAttempts(), e.getNextValidationAt()
         );
     }
 }

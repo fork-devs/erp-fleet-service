@@ -30,13 +30,34 @@ public class VehicleJpaEntity {
     @Column(name = "created_at")
     private Instant createdAt;
 
+    // Resultado de la validacion contra el integration-hub.
+    @Column(name = "numero_motor")
+    private String numeroMotor;
+    @Column
+    private String color;
+    @Column
+    private String combustible;
+    @Column(name = "validated_at")
+    private Instant validatedAt;
+
+    // Estado del reintento programado de la validacion.
+    @Column(name = "validation_attempts", nullable = false)
+    private int validationAttempts;
+    @Column(name = "next_validation_at")
+    private Instant nextValidationAt;
+
     public VehicleJpaEntity() {}
 
     public VehicleJpaEntity(UUID id, UUID tenantId, UUID customerId, String plate, String brand,
-                             String model, Integer year, String vin, String validationStatus, String status, Instant createdAt) {
+                             String model, Integer year, String vin, String validationStatus, String status, Instant createdAt,
+                             String numeroMotor, String color, String combustible, Instant validatedAt,
+                             int validationAttempts, Instant nextValidationAt) {
         this.id = id; this.tenantId = tenantId; this.customerId = customerId; this.plate = plate;
         this.brand = brand; this.model = model; this.year = year; this.vin = vin;
         this.validationStatus = validationStatus; this.status = status; this.createdAt = createdAt;
+        this.numeroMotor = numeroMotor; this.color = color; this.combustible = combustible;
+        this.validatedAt = validatedAt; this.validationAttempts = validationAttempts;
+        this.nextValidationAt = nextValidationAt;
     }
 
     public UUID getId() { return id; }
@@ -61,4 +82,16 @@ public class VehicleJpaEntity {
     public void setStatus(String status) { this.status = status; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getNumeroMotor() { return numeroMotor; }
+    public void setNumeroMotor(String numeroMotor) { this.numeroMotor = numeroMotor; }
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
+    public String getCombustible() { return combustible; }
+    public void setCombustible(String combustible) { this.combustible = combustible; }
+    public Instant getValidatedAt() { return validatedAt; }
+    public void setValidatedAt(Instant validatedAt) { this.validatedAt = validatedAt; }
+    public int getValidationAttempts() { return validationAttempts; }
+    public void setValidationAttempts(int validationAttempts) { this.validationAttempts = validationAttempts; }
+    public Instant getNextValidationAt() { return nextValidationAt; }
+    public void setNextValidationAt(Instant nextValidationAt) { this.nextValidationAt = nextValidationAt; }
 }

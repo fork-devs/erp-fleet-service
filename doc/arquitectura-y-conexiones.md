@@ -100,22 +100,30 @@ Cumpliendo el principio de **Database-per-Service**, `erp-fleet-service` posee s
 * **Motor:** PostgreSQL 16
 * **Nombre de BD:** `erp_fleet_db`
 * **Puerto:** 5435
-* **Herramienta de migración:** Flyway (`V1__create_customers_table.sql`, `V2__create_vehicles_table.sql`)
+* **Herramienta de migración:** Flyway (`V1__create_customers_table.sql`, `V2__create_vehicles_table.sql`, `V3__rls_y_roles_fleet.sql`, `V4__validation_result_columns.sql`)
+* **Rol de ejecución:** `erp_fleet_app`, que **no** es propietario de las tablas y **no** tiene `BYPASSRLS`. El propietario (`erp_fleet_owner`) lo usan solo las migraciones.
+* **Rol de plataforma:** `erp_fleet_platform`, con `BYPASSRLS`, usado **únicamente** por el barrido de revalidación, que recorre los talleres con registros pendientes. Su credencial vive separada de la de la aplicación.
 
 ### 3.2. Aislamiento con Row Level Security (RLS)
 Para garantizar la estricta separación de datos entre diferentes talleres (inquilinos):
 1. Todas las tablas incluyen una columna obligatoria `tenant_id UUID NOT NULL`.
-2. Las políticas de PostgreSQL RLS aíslan cada fila automáticamente:
+2. Las políticas de PostgreSQL RLS aíslan cada fila automáticamente. La RLS se **habilita y se fuerza**: `FORCE` por sí solo no la habilita, solo obliga a que la política se aplique también al propietario, que es el rol que la eludía.
    ```sql
    ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE customers FORCE  ROW LEVEL SECURITY;
    CREATE POLICY customer_tenant_isolation ON customers
-       USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
+       USING      (tenant_id = current_setting('app.tenant_id')::uuid)
+       WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
 
    ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+   ALTER TABLE vehicles FORCE  ROW LEVEL SECURITY;
    CREATE POLICY vehicle_tenant_isolation ON vehicles
-       USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
+       USING      (tenant_id = current_setting('app.tenant_id')::uuid)
+       WITH CHECK (tenant_id = current_setting('app.tenant_id')::uuid);
    ```
-3. A nivel de aplicación, todas las consultas y repositorios Spring Data filtran obligatoriamente por `tenant_id` recibido desde el encabezado verificado.
+3. El contexto de taller se lee **sin** el flag `missing_ok`: sin contexto, la consulta falla de forma explícita en lugar de devolver cero filas en silencio. El aislamiento no se relaja calladamente.
+4. El contexto lo establece el **principal autenticado**, nunca la fila que se opera: si lo fijase la fila, la comprobación de la política sería siempre satisfactoria y el aislamiento no aislaría nada. Se aplica con `SET LOCAL` **dentro** de la transacción, con el orden de advice declarado (el interceptor transaccional en el orden 0 y el aspecto de RLS en el 1).
+5. La aplicación conecta con `erp_fleet_app`, que no es propietario de las tablas. Los repositorios Spring Data filtran además por `tenant_id` como segunda barrera, no como única.
 
 ### 3.3. Relación Lógica entre Entidades
 No existen claves foráneas (`FOREIGN KEY`) cruzadas entre microservicios:
@@ -136,15 +144,18 @@ A continuación se detalla cómo se integra `erp-fleet-service` con los demás c
      * `X-Tenant-ID`: UUID del taller autenticado.
      * `X-User-ID`: UUID del usuario emisor.
      * `X-User-Roles`: Roles asignados (ej. `MECANICO`, `ADMIN`).
-* **Seguridad Interna:** `erp-fleet-service` opera de manera *stateless*, confiando en la red interna protegida y consumiendo directamente `@RequestHeader("X-Tenant-ID") UUID tenantId`.
+* **Seguridad Interna:** `erp-fleet-service` opera de manera *stateless* y **valida el token de acceso** contra el conjunto de claves del emisor (`/.well-known/jwks.json`). El taller se deriva **exclusivamente** del claim `tenant_id` del token verificado: la cabecera `X-Tenant-ID` es una **pista**, no una autoridad, y el servicio la contrasta con el token y rechaza la petición cuando no coinciden. Confiar en la red interna no es una autorización: el servicio es alcanzable directamente, y quien lo alcance podría elegir el taller.
 
 ### 4.2. Conexión Salida: `erp-fleet-service` → `erp-integration-hub` (ACL)
 * **Objetivo:** Validación de autenticidad de documentos (DNI/RUC con RENIEC/SUNAT) y antecedentes de placa/VIN (MTC).
 * **Flujo Asíncrono no bloqueante:**
   1. Cuando un usuario registra un cliente o vehículo en `erp-fleet-service`, el registro se persiste inmediatamente en la base de datos con `validation_status = 'PENDING'`.
-  2. `erp-fleet-service` emite una solicitud asíncrona hacia `erp-integration-hub` (puerto 8085).
-  3. Si la pasarela externa responde con éxito, se actualiza a `VALIDATED`.
-  4. Si RENIEC o SUNAT están caídos, la operación del taller no se detiene; el registro permanece en `PENDING` para reintentos posteriores gracias al Circuit Breaker de Resilience4j.
+  2. `erp-fleet-service` consulta a `erp-integration-hub` por **HTTPS**, con su **propia clave de servicio**; el hub le concede el rol acotado `ROLE_FLEET`.
+  3. Si el hub declara el documento o la placa válidos, el registro pasa a `VALID` y se guardan los datos que informa.
+  4. Si el hub informa una discrepancia, el registro pasa a `OBSERVED`: el taller tiene que revisarlo. **No** es un fallo de la validación.
+  5. Si el hub no está disponible, la operación del taller **no se detiene**: el registro permanece en `PENDING`, se cuenta el intento y se programa el siguiente. El **Circuit Breaker** de Resilience4j vive en fleet, porque el degradado es una decisión de quien llama: un circuito dentro del hub solo podría negarse a responder, no comunicar al que llama que debe degradar.
+  6. Un **barrido programado** revalida los registros pendientes cuya espera ha vencido, con un **límite por taller** para no agotar la cuota de validación del hub, que se comparte entre talleres.
+  7. Los resultados correctos se sirven con **caché** (Redis): un RUC 30 días y una placa 7 días.
 
 ### 4.3. Conexión Salida / Consumo: `erp-work-order-service` → `erp-fleet-service`
 * **Objetivo:** Creación y asociación de órdenes de servicio automotriz.
@@ -162,18 +173,45 @@ Todos los endpoints están documentados bajo el estándar OpenAPI 3.0 / Swagger 
 
 ### Matriz de Endpoints
 
-| Método | Endpoint | Descripción | Header Obligatorio |
+Todos los endpoints se publican bajo **`/api/v1/fleet`**, que es el `path-prefix`
+que el gateway reenvía **sin quitarlo**: el prefijo del gateway *es* la ruta
+del servicio. Un endpoint fuera de ese prefijo es inalcanzable desde el
+gateway.
+
+Todos exigen un **token de acceso verificado**. El taller se deriva del token;
+la cabecera `X-Tenant-ID` es una pista que se contrasta con él.
+
+| Método | Endpoint | Descripción | Rol |
 |---|---|---|---|
-| **POST** | `/api/v1/customers` | Registrar un nuevo cliente en el taller | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/customers` | Listar todos los clientes del taller | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/customers/{id}` | Obtener detalle de cliente por ID | `X-Tenant-ID: <UUID>` |
-| **PUT** | `/api/v1/customers/{id}` | Actualizar datos de contacto del cliente | `X-Tenant-ID: <UUID>` |
-| **DELETE** | `/api/v1/customers/{id}` | Desactivar cliente (borrado lógico) | `X-Tenant-ID: <UUID>` |
-| **POST** | `/api/v1/vehicles` | Registrar nuevo vehículo asociado a un cliente | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/vehicles` | Listar todos los vehículos registrados en el taller | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/vehicles/{id}` | Obtener vehículo por ID | `X-Tenant-ID: <UUID>` |
-| **GET** | `/api/v1/vehicles/customer/{customerId}` | Listar flota vehicular de un cliente específico | `X-Tenant-ID: <UUID>` |
-| **PUT** | `/api/v1/vehicles/{id}` | Actualizar datos del vehículo (año, modelo, VIN) | `X-Tenant-ID: <UUID>` |
+| **POST** | `/api/v1/fleet/customers` | Registrar un nuevo cliente en el taller | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **GET** | `/api/v1/fleet/customers` | Listar todos los clientes del taller | + `MECANICO` |
+| **GET** | `/api/v1/fleet/customers/{id}` | Obtener detalle de cliente por ID | + `MECANICO` |
+| **PUT** | `/api/v1/fleet/customers/{id}` | Actualizar datos de contacto del cliente | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **DELETE** | `/api/v1/fleet/customers/{id}` | Desactivar cliente (baja lógica; no admite vehículos asociados) | `SUPERADMIN`, `ADMIN_TALLER` |
+| **POST** | `/api/v1/fleet/customers/{id}/validate` | Reintentar la validación pendiente del cliente | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **POST** | `/api/v1/fleet/vehicles` | Registrar nuevo vehículo asociado a un cliente | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **GET** | `/api/v1/fleet/vehicles` | Listar todos los vehículos registrados en el taller | + `MECANICO` |
+| **GET** | `/api/v1/fleet/vehicles/{id}` | Obtener vehículo por ID | + `MECANICO` |
+| **GET** | `/api/v1/fleet/vehicles/customer/{customerId}` | Listar flota vehicular de un cliente específico | + `MECANICO` |
+| **PUT** | `/api/v1/fleet/vehicles/{id}` | Actualizar datos del vehículo (año, modelo, VIN) | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+| **POST** | `/api/v1/fleet/vehicles/{id}/validate` | Reintentar la validación pendiente del vehículo | `SUPERADMIN`, `ADMIN_TALLER`, `ASESOR` |
+
+**Errores.** El cuerpo del error es un `ProblemDetail` (RFC 9457) con un código
+estable por familia (`code`) y el taller (`tenant_id`). El cliente puede
+distinguirlas sin adivinar:
+
+| Código | HTTP | Significado |
+|---|---|---|
+| `FLEET_DOC_DUPLICADO` | 409 | Ya existe un cliente con ese documento **en el taller** |
+| `FLEET_PLATE_DUPLICADO` | 409 | Ya existe un vehículo con esa placa **en el taller** |
+| `FLEET_CUSTOMER_HAS_VEHICLES` | 409 | El cliente tiene vehículos y no se puede dar de baja |
+| `FLEET_CUSTOMER_NOT_FOUND` | 404 | El cliente no existe en el taller |
+| `FLEET_VEHICLE_NOT_FOUND` | 404 | El vehículo no existe en el taller |
+| `FLEET_NOT_FOUND` | 404 | La ruta no existe |
+| `FLEET_ACCESS_DENIED` | 403 | El principal no tiene el rol que exige el endpoint |
+| `FLEET_UNAUTHENTICATED` | 401 | La petición no trae un token verificado |
+| `FLEET_VALIDATION_ERROR` | 400 | El cuerpo de la petición no es válido |
+| `FLEET_INTERNAL_ERROR` | 500 | Error no previsto (registrado con su traza) |
 
 ---
 
