@@ -29,5 +29,25 @@ services:
       timeout: 5s
       retries: 10
 
+  fleet-redis:
+    image: 'redis:7-alpine'
+    container_name: erp-fleet-redis
+    # La cache de validaciones es de fleet y no del hub porque la del hub es
+    # LOCAL a cada instancia. Con varias replicas, cada una consultaria al
+    # proveedor externo por su cuenta.
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD:?defina REDIS_PASSWORD con la contrasena de la cache}']
+    ports:
+      - '6383:6379'
+    volumes:
+      - redis_fleet_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD con la contrasena de la cache}
+
 volumes:
   postgres_fleet_data:
+  redis_fleet_data:
