@@ -43,8 +43,15 @@ class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
     @Autowired
     private UnitOfWork unitOfWork;
 
+    @Autowired
+    private io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry circuitBreakerRegistry;
+
     @BeforeEach
     void setUp() {
+        // El interruptor de circuito es un bean compartido: si otra prueba lo
+        // dejo abierto, este barrido no llegaria a consultar al hub. Cada
+        // prueba empieza con el circuito cerrado.
+        circuitBreakerRegistry.circuitBreaker("hubValidacion").reset();
         TestHubServer.setCaido(false);
         TestHubServer.setObservado(false);
         TestHubServer.reiniciarContador();

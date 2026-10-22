@@ -45,12 +45,18 @@ class FleetValidationTest extends AbstractPostgresIntegrationTest {
     private CustomerRepositoryPort customerRepository;
 
     @Autowired
+    private io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry circuitBreakerRegistry;
+
+    @Autowired
     private UnitOfWork unitOfWork;
 
     private UUID tenantId;
 
     @BeforeEach
     void setUp() {
+        // El interruptor de circuito es un bean compartido: cada prueba
+        // empieza con el circuito cerrado.
+        circuitBreakerRegistry.circuitBreaker("hubValidacion").reset();
         tenantId = UUID.randomUUID();
         TenantContextHolder.setTenantId(tenantId);
         TestHubServer.setCaido(false);
