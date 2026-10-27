@@ -3,11 +3,11 @@ package com.erp.fleet.support;
 import com.erp.fleet.application.dto.command.RegisterCustomerCommand;
 import com.erp.fleet.application.dto.command.RegisterVehicleCommand;
 import com.erp.fleet.application.dto.command.UpdateCustomerCommand;
-import com.erp.fleet.application.dto.command.ValidarClienteCommand;
+import com.erp.fleet.application.dto.command.ValidateCustomerCommand;
 import com.erp.fleet.application.dto.result.CustomerResult;
 import com.erp.fleet.application.usecase.RegisterCustomerUseCase;
 import com.erp.fleet.application.usecase.UpdateCustomerUseCase;
-import com.erp.fleet.application.usecase.ValidarClienteUseCase;
+import com.erp.fleet.application.usecase.ValidateCustomerUseCase;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
 import com.erp.fleet.domain.port.UnitOfWork;
 import com.erp.fleet.domain.valueobject.CustomerId;
@@ -47,7 +47,7 @@ class CrossTenantAccessTest extends AbstractPostgresIntegrationTest {
     private UpdateCustomerUseCase updateCustomerUseCase;
 
     @Autowired
-    private ValidarClienteUseCase validarClienteUseCase;
+    private ValidateCustomerUseCase validateCustomerUseCase;
 
     @Autowired
     private CustomerRepositoryPort customerRepository;
@@ -105,8 +105,8 @@ class CrossTenantAccessTest extends AbstractPostgresIntegrationTest {
         CustomerResult delOtroTaller = clienteDelTaller(tallerB);
 
         TenantContextHolder.setTenantId(tallerA);
-        assertThrows(RuntimeException.class, () -> validarClienteUseCase.validar(
-                        new ValidarClienteCommand(delOtroTaller.id(), tallerA)),
+        assertThrows(RuntimeException.class, () -> validateCustomerUseCase.validate(
+                        new ValidateCustomerCommand(delOtroTaller.id(), tallerA)),
                 "Validar un cliente de otro taller tiene que rechazarse");
     }
 
