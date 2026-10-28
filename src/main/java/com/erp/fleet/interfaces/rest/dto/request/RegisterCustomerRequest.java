@@ -3,9 +3,16 @@ package com.erp.fleet.interfaces.rest.dto.request;
 import jakarta.validation.constraints.NotBlank;
 
 public record RegisterCustomerRequest(
-        @NotBlank String fullName,
+        @NotBlank(message = "{validation.fleet.customer.full-name.not-blank}")
+        String fullName,
+
         String email,
+
         String phone,
-        @NotBlank String docType,
-        @NotBlank String docNumber
+
+        @NotBlank(message = "{validation.fleet.customer.doc-type.not-blank}")
+        String docType,
+
+        @NotBlank(message = "{validation.fleet.customer.doc-number.not-blank}")
+        String docNumber
 ) {}

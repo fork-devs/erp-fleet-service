@@ -5,6 +5,8 @@ import com.erp.fleet.infrastructure.persistence.rls.TenantContextHolder;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.net.URI;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -37,46 +40,70 @@ public class GlobalRestExceptionHandler {
 
     private static final String TIPO_BASE = "https://erp-automotive.pe/errors/";
 
+    private final MessageSource messageSource;
+
+    public GlobalRestExceptionHandler() {
+        this(null);
+    }
+
+    public GlobalRestExceptionHandler(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    private String getMessage(String code, String defaultMessage, Object... args) {
+        if (messageSource == null) {
+            return defaultMessage;
+        }
+        Locale locale = LocaleContextHolder.getLocale();
+        return messageSource.getMessage(code, args, defaultMessage, locale);
+    }
+
     /** La peticion no tiene contexto de taller. */
     @ExceptionHandler(com.erp.fleet.domain.exception.TenantContextMissingException.class)
     public ProblemDetail handleTenantContextMissing(
             com.erp.fleet.domain.exception.TenantContextMissingException ex, WebRequest request) {
-        return problema(ex.getCode(), HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+        String detail = getMessage("error.fleet.tenant-context-missing.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.BAD_REQUEST, detail, request);
     }
 
     /** El documento ya existe en el taller. */
     @ExceptionHandler(com.erp.fleet.domain.exception.DocAlreadyExistsException.class)
     public ProblemDetail handleDocAlreadyExists(
             com.erp.fleet.domain.exception.DocAlreadyExistsException ex, WebRequest request) {
-        return problema(ex.getCode(), HttpStatus.CONFLICT, ex.getMessage(), request);
+        String detail = getMessage("error.fleet.doc-already-exists.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.CONFLICT, detail, request);
     }
 
     /** La placa ya existe en el taller. */
     @ExceptionHandler(com.erp.fleet.domain.exception.PlateAlreadyExistsException.class)
     public ProblemDetail handlePlateAlreadyExists(
             com.erp.fleet.domain.exception.PlateAlreadyExistsException ex, WebRequest request) {
-        return problema(ex.getCode(), HttpStatus.CONFLICT, ex.getMessage(), request);
+        String detail = getMessage("error.fleet.plate-already-exists.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.CONFLICT, detail, request);
     }
 
     /** El cliente no existe en el taller. */
     @ExceptionHandler(com.erp.fleet.domain.exception.CustomerNotFoundException.class)
     public ProblemDetail handleCustomerNotFound(
             com.erp.fleet.domain.exception.CustomerNotFoundException ex, WebRequest request) {
-        return problema(ex.getCode(), HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        String detail = getMessage("error.fleet.customer-not-found.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.NOT_FOUND, detail, request);
     }
 
     /** El vehiculo no existe en el taller. */
     @ExceptionHandler(com.erp.fleet.domain.exception.VehicleNotFoundException.class)
     public ProblemDetail handleVehicleNotFound(
             com.erp.fleet.domain.exception.VehicleNotFoundException ex, WebRequest request) {
-        return problema(ex.getCode(), HttpStatus.NOT_FOUND, ex.getMessage(), request);
+        String detail = getMessage("error.fleet.vehicle-not-found.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.NOT_FOUND, detail, request);
     }
 
     /** El cliente tiene vehiculos y no se puede dar de baja. */
     @ExceptionHandler(com.erp.fleet.domain.exception.CustomerWithVehiclesException.class)
     public ProblemDetail handleCustomerWithVehicles(
             com.erp.fleet.domain.exception.CustomerWithVehiclesException ex, WebRequest request) {
-        return problema(ex.getCode(), HttpStatus.CONFLICT, ex.getMessage(), request);
+        String detail = getMessage("error.fleet.customer-with-vehicles.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.CONFLICT, detail, request);
     }
 
     /** Cualquier otro error de dominio. */
@@ -93,14 +120,16 @@ public class GlobalRestExceptionHandler {
      */
     @ExceptionHandler(AccessDeniedException.class)
     public ProblemDetail handleAccessDenied(AccessDeniedException ex, WebRequest request) {
-        return problema("FLEET_ACCESS_DENIED", HttpStatus.FORBIDDEN,
-                "El principal no tiene el rol que exige el endpoint", request);
+        String detail = getMessage("error.fleet.access-denied.detail",
+                "El principal no tiene el rol que exige el endpoint");
+        return problema("FLEET_ACCESS_DENIED", HttpStatus.FORBIDDEN, detail, request);
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ProblemDetail handleAuthentication(AuthenticationException ex, WebRequest request) {
-        return problema("FLEET_UNAUTHENTICATED", HttpStatus.UNAUTHORIZED,
-                "La peticion requiere un token de acceso verificado", request);
+        String detail = getMessage("error.fleet.unauthenticated.detail",
+                "La peticion requiere un token de acceso verificado");
+        return problema("FLEET_UNAUTHENTICATED", HttpStatus.UNAUTHORIZED, detail, request);
     }
 
     /**
@@ -111,7 +140,8 @@ public class GlobalRestExceptionHandler {
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
     public ProblemDetail handleNoResource(org.springframework.web.servlet.resource.NoResourceFoundException ex,
                                           WebRequest request) {
-        return problema("FLEET_NOT_FOUND", HttpStatus.NOT_FOUND, "El recurso solicitado no existe", request);
+        String detail = getMessage("error.fleet.not-found.detail", "El recurso solicitado no existe");
+        return problema("FLEET_NOT_FOUND", HttpStatus.NOT_FOUND, detail, request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -119,8 +149,10 @@ public class GlobalRestExceptionHandler {
         String mensaje = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .findFirst()
-                .orElse("Peticion no valida");
-        return problema("FLEET_VALIDATION_ERROR", HttpStatus.BAD_REQUEST, mensaje, request);
+                .orElse(getMessage("error.fleet.validation-error.detail", "Peticion no valida"));
+        ProblemDetail problem = problema("FLEET_VALIDATION_ERROR", HttpStatus.BAD_REQUEST, mensaje, request);
+        problem.setTitle(getMessage("error.fleet.validation-error.title", HttpStatus.BAD_REQUEST.getReasonPhrase()));
+        return problem;
     }
 
     /**
@@ -131,8 +163,8 @@ public class GlobalRestExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex, WebRequest request) {
         log.error("Error no previsto en {} {}", request.getDescription(false), ex.getMessage(), ex);
-        return problema("FLEET_INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR,
-                "Se ha producido un error interno", request);
+        String detail = getMessage("error.fleet.internal-error.detail", "Se ha producido un error interno");
+        return problema("FLEET_INTERNAL_ERROR", HttpStatus.INTERNAL_SERVER_ERROR, detail, request);
     }
 
     private ProblemDetail problema(String codigo, HttpStatus estado, String detalle, WebRequest request) {
