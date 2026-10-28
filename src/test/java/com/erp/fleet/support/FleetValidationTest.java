@@ -1,10 +1,10 @@
 package com.erp.fleet.support;
 
 import com.erp.fleet.application.dto.command.RegisterCustomerCommand;
-import com.erp.fleet.application.dto.command.ValidarClienteCommand;
+import com.erp.fleet.application.dto.command.ValidateCustomerCommand;
 import com.erp.fleet.application.dto.result.CustomerResult;
 import com.erp.fleet.application.usecase.RegisterCustomerUseCase;
-import com.erp.fleet.application.usecase.ValidarClienteUseCase;
+import com.erp.fleet.application.usecase.ValidateCustomerUseCase;
 import com.erp.fleet.domain.model.Customer;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
 import com.erp.fleet.domain.port.UnitOfWork;
@@ -25,12 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * La validacion contra el hub existe, y su caida no pierde el registro.
- *
- * <p>El hub es el unico punto de salida a RENIEC, SUNAT y la consulta
- * vehicular. La documentacion del servicio describia el flujo de validacion
- * asincrona, pero no habia ni cliente, ni cache, ni interruptor de circuito:
- * el registro se quedaba en PENDING para siempre.
+ * Integration test verifying customer identity validation through the integration hub.
  */
 @SpringBootTest
 class FleetValidationTest extends AbstractPostgresIntegrationTest {
@@ -39,7 +34,7 @@ class FleetValidationTest extends AbstractPostgresIntegrationTest {
     private RegisterCustomerUseCase registerCustomerUseCase;
 
     @Autowired
-    private ValidarClienteUseCase validarClienteUseCase;
+    private ValidateCustomerUseCase validateCustomerUseCase;
 
     @Autowired
     private CustomerRepositoryPort customerRepository;
@@ -54,9 +49,7 @@ class FleetValidationTest extends AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // El interruptor de circuito es un bean compartido: cada prueba
-        // empieza con el circuito cerrado.
-        circuitBreakerRegistry.circuitBreaker("hubValidacion").reset();
+        circuitBreakerRegistry.circuitBreaker("hubValidation").reset();
         tenantId = UUID.randomUUID();
         TenantContextHolder.setTenantId(tenantId);
         TestHubServer.setCaido(false);
@@ -70,75 +63,69 @@ class FleetValidationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Un cliente se registra pendiente y la validacion lo confirma")
-    void unClienteSeRegistraPendienteYLaValidacionLoConfirma() {
-        CustomerResult registrado = registerCustomerUseCase.register(
+    @DisplayName("A customer is registered as PENDING and hub validation confirms it to VALID")
+    void customerRegistersPendingAndValidationConfirms() {
+        CustomerResult registered = registerCustomerUseCase.register(
                 new RegisterCustomerCommand(tenantId, "Talleres SAC", "taller@ejemplo.com",
                         "999999999", "RUC", "20601030013"));
 
-        assertEquals("PENDING", registrado.validationStatus());
+        assertEquals("PENDING", registered.validationStatus());
 
-        CustomerResult validado = validarClienteUseCase.validar(
-                new ValidarClienteCommand(registrado.id(), tenantId));
+        CustomerResult validated = validateCustomerUseCase.validate(
+                new ValidateCustomerCommand(registered.id(), tenantId));
 
-        assertEquals("VALID", validado.validationStatus());
-        assertTrue(TestHubServer.llamadas() >= 1, "El hub debe haber recibido la consulta");
+        assertEquals("VALID", validated.validationStatus());
+        assertTrue(TestHubServer.llamadas() >= 1, "Integration hub must have received the request");
     }
 
     @Test
-    @DisplayName("Una discrepancia del hub deja el cliente observado")
-    void unaDiscrepanciaDelHubDejaElClienteObservado() {
+    @DisplayName("A discrepancy returned by the hub marks customer as OBSERVED")
+    void hubDiscrepancyMarksCustomerObserved() {
         TestHubServer.setObservado(true);
 
-        CustomerResult registrado = registerCustomerUseCase.register(
+        CustomerResult registered = registerCustomerUseCase.register(
                 new RegisterCustomerCommand(tenantId, "Talleres SAC", "taller@ejemplo.com",
                         "999999999", "RUC", "20601030013"));
 
-        CustomerResult validado = validarClienteUseCase.validar(
-                new ValidarClienteCommand(registrado.id(), tenantId));
+        CustomerResult validated = validateCustomerUseCase.validate(
+                new ValidateCustomerCommand(registered.id(), tenantId));
 
-        assertEquals("OBSERVED", validado.validationStatus());
+        assertEquals("OBSERVED", validated.validationStatus());
     }
 
     @Test
-    @DisplayName("Con el hub caido el registro no se pierde y queda pendiente")
-    void conElHubCaidoElRegistroNoSePierdeYQuedaPendiente() {
+    @DisplayName("When hub is down the customer remains PENDING and retry is scheduled")
+    void hubDownKeepsCustomerPendingAndSchedulesRetry() {
         TestHubServer.setCaido(true);
 
-        CustomerResult registrado = registerCustomerUseCase.register(
+        CustomerResult registered = registerCustomerUseCase.register(
                 new RegisterCustomerCommand(tenantId, "Talleres SAC", "taller@ejemplo.com",
                         "999999999", "RUC", "20601030013"));
 
-        CustomerResult trasElFallo = validarClienteUseCase.validar(
-                new ValidarClienteCommand(registrado.id(), tenantId));
+        CustomerResult afterFailure = validateCustomerUseCase.validate(
+                new ValidateCustomerCommand(registered.id(), tenantId));
 
-        assertEquals("PENDING", trasElFallo.validationStatus(),
-                "Con el hub caido el registro sigue pendiente: no se marca como no valido");
+        assertEquals("PENDING", afterFailure.validationStatus());
 
-        // Los adaptadores se unen a la transaccion que abre la capa de
-        // aplicacion: una lectura directa fuera de ella no es valida.
-        Customer guardado = unitOfWork.callInTransaction(() -> customerRepository
-                .findById(new CustomerId(registrado.id()), new TenantId(tenantId))
+        Customer saved = unitOfWork.callInTransaction(() -> customerRepository
+                .findById(new CustomerId(registered.id()), new TenantId(tenantId))
                 .orElseThrow());
 
-        assertNotNull(guardado);
-        assertEquals("PENDING", guardado.getValidationStatus().name());
-        assertEquals(1, guardado.getValidationAttempts(),
-                "El intento fallido se cuenta y el siguiente se programa");
-        assertNotNull(guardado.getNextValidationAt(),
-                "El fallo programa el siguiente intento");
+        assertNotNull(saved);
+        assertEquals("PENDING", saved.getValidationStatus().name());
+        assertEquals(1, saved.getValidationAttempts());
+        assertNotNull(saved.getNextValidationAt());
     }
 
     @Test
-    @DisplayName("El fallo del hub no se propaga al operador")
-    void elFalloDelHubNoSePropagaAlOperador() {
+    @DisplayName("Hub communication failure does not propagate to caller")
+    void hubFailureDoesNotPropagateToCaller() {
         TestHubServer.setCaido(true);
 
-        CustomerResult registrado = registerCustomerUseCase.register(
+        CustomerResult registered = registerCustomerUseCase.register(
                 new RegisterCustomerCommand(tenantId, "Talleres SAC", "taller@ejemplo.com",
                         "999999999", "RUC", "20601030013"));
 
-        validarClienteUseCase.validar(new ValidarClienteCommand(registrado.id(), tenantId));
-        // Si la excepcion se propagase, el test fallaria aqui.
+        validateCustomerUseCase.validate(new ValidateCustomerCommand(registered.id(), tenantId));
     }
 }

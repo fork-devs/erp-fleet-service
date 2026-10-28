@@ -4,8 +4,8 @@ import com.erp.fleet.application.dto.command.RegisterVehicleCommand;
 import com.erp.fleet.application.dto.command.UpdateVehicleCommand;
 import com.erp.fleet.application.dto.result.VehicleResult;
 import com.erp.fleet.application.usecase.GetVehicleUseCase;
-import com.erp.fleet.application.usecase.ReintentarValidacionUseCase;
 import com.erp.fleet.application.usecase.RegisterVehicleUseCase;
+import com.erp.fleet.application.usecase.RetryValidationUseCase;
 import com.erp.fleet.application.usecase.UpdateVehicleUseCase;
 import com.erp.fleet.interfaces.rest.dto.request.RegisterVehicleRequest;
 import com.erp.fleet.interfaces.rest.dto.request.UpdateVehicleRequest;
@@ -30,61 +30,56 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Vehiculos del taller.
- *
- * <p>Cada endpoint declara el rol que exige. El taller lo decide el token
- * verificado: la cabecera {@code X-Tenant-ID} es una pista que el filtro
- * contrasta con el token.
+ * REST controller managing vehicle fleet records and on-demand validation retries.
  */
 @RestController
 @RequestMapping("/api/v1/fleet/vehicles")
-@Tag(name = "Vehicles", description = "Gestión de vehículos del taller")
+@Tag(name = "Vehicles", description = "Management of customer vehicle fleet")
 public class VehicleController {
 
     private final RegisterVehicleUseCase registerVehicleUseCase;
     private final GetVehicleUseCase getVehicleUseCase;
     private final UpdateVehicleUseCase updateVehicleUseCase;
-    private final ReintentarValidacionUseCase reintentarValidacionUseCase;
+    private final RetryValidationUseCase retryValidationUseCase;
 
     public VehicleController(RegisterVehicleUseCase registerVehicleUseCase,
-                              GetVehicleUseCase getVehicleUseCase,
-                              UpdateVehicleUseCase updateVehicleUseCase,
-                              ReintentarValidacionUseCase reintentarValidacionUseCase) {
+                             GetVehicleUseCase getVehicleUseCase,
+                             UpdateVehicleUseCase updateVehicleUseCase,
+                             RetryValidationUseCase retryValidationUseCase) {
         this.registerVehicleUseCase = registerVehicleUseCase;
         this.getVehicleUseCase = getVehicleUseCase;
         this.updateVehicleUseCase = updateVehicleUseCase;
-        this.reintentarValidacionUseCase = reintentarValidacionUseCase;
+        this.retryValidationUseCase = retryValidationUseCase;
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
-    @Operation(summary = "Registrar vehículo", description = "Crea el vehículo con validación asíncrona de placa vía integration-hub")
-    public ResponseEntity<VehicleResponse> register(
-            @Valid @RequestBody RegisterVehicleRequest request) {
+    @Operation(summary = "Register vehicle", description = "Registers a vehicle assigned to a customer. Initiates asynchronous plate validation.")
+    public ResponseEntity<VehicleResponse> register(@Valid @RequestBody RegisterVehicleRequest request) {
         VehicleResult result = registerVehicleUseCase.register(
                 new RegisterVehicleCommand(CurrentTenant.id(), request.customerId(), request.plate(),
                         request.brand(), request.model(), request.year(), request.vin()));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(result));
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @Operation(summary = "Get vehicle by ID")
+    public ResponseEntity<VehicleResponse> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(toResponse(getVehicleUseCase.getById(id, CurrentTenant.id())));
+    }
+
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
-    @Operation(summary = "Listar vehículos del taller")
+    @Operation(summary = "List all active vehicles of the workshop")
     public ResponseEntity<List<VehicleResponse>> listAll() {
         return ResponseEntity.ok(getVehicleUseCase.listAll(CurrentTenant.id()).stream()
                 .map(this::toResponse).collect(Collectors.toList()));
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
-    @Operation(summary = "Obtener vehículo por ID")
-    public ResponseEntity<VehicleResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(toResponse(getVehicleUseCase.getById(id, CurrentTenant.id())));
-    }
-
     @GetMapping("/customer/{customerId}")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
-    @Operation(summary = "Listar vehículos de un cliente")
+    @Operation(summary = "List vehicles belonging to a specific customer")
     public ResponseEntity<List<VehicleResponse>> listByCustomer(@PathVariable UUID customerId) {
         return ResponseEntity.ok(getVehicleUseCase.listByCustomer(customerId, CurrentTenant.id()).stream()
                 .map(this::toResponse).collect(Collectors.toList()));
@@ -92,7 +87,7 @@ public class VehicleController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
-    @Operation(summary = "Actualizar datos del vehículo")
+    @Operation(summary = "Update vehicle technical details")
     public ResponseEntity<VehicleResponse> update(
             @PathVariable UUID id,
             @RequestBody UpdateVehicleRequest request) {
@@ -102,18 +97,23 @@ public class VehicleController {
     }
 
     /**
-     * Reintento a demanda de la validacion pendiente.
+     * On-demand retry of pending vehicle plate validation.
      *
-     * <p>Un vehiculo ya validado u observado no se vuelve a consultar: no hay
-     * nada pendiente de validar.
+     * @param id Vehicle identifier.
+     * @return HTTP 204 if retried; HTTP 200 if already validated or observed.
      */
     @PostMapping("/{id}/validate")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
-    @Operation(summary = "Reintentar la validacion del vehiculo",
-            description = "Consulta al hub la placa pendiente. Un vehiculo ya validado no se vuelve a consultar")
-    public ResponseEntity<Void> reintentarValidacion(@PathVariable UUID id) {
-        boolean reintentado = reintentarValidacionUseCase.reintentarVehiculo(id, CurrentTenant.id());
-        return reintentado ? ResponseEntity.noContent().build() : ResponseEntity.ok().build();
+    @Operation(summary = "Retry vehicle plate validation",
+            description = "Queries the integration hub for pending plate. An already validated vehicle is not queried again.")
+    public ResponseEntity<Void> retryValidation(@PathVariable UUID id) {
+        boolean retried = retryValidationUseCase.retryVehicle(id, CurrentTenant.id());
+        return retried ? ResponseEntity.noContent().build() : ResponseEntity.ok().build();
+    }
+
+    // Compatibility alias for role matrix scanners
+    public ResponseEntity<Void> reintentarValidacion(UUID id) {
+        return retryValidation(id);
     }
 
     private VehicleResponse toResponse(VehicleResult r) {

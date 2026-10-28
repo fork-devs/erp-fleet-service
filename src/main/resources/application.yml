@@ -1,5 +1,6 @@
 server:
   port: ${SERVER_PORT:8083}
+  forward-headers-strategy: framework
   servlet:
     context-path: /
 
@@ -94,7 +95,7 @@ erp:
 resilience4j:
   circuitbreaker:
     instances:
-      hubValidacion:
+      hubValidation:
         # El circuito se abre tras estos fallos consecutivos y deja pasar una
         # sola prueba en estado medio abierto.
         sliding-window-size: 10

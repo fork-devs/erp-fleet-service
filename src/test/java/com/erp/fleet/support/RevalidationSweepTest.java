@@ -1,6 +1,6 @@
 package com.erp.fleet.support;
 
-import com.erp.fleet.application.service.RevalidacionService;
+import com.erp.fleet.application.service.RevalidationService;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
 import com.erp.fleet.domain.port.UnitOfWork;
 import com.erp.fleet.domain.valueobject.CustomerId;
@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
-    private RevalidacionService revalidacionService;
+    private RevalidationService revalidationService;
 
     @Autowired
     private CustomerRepositoryPort customerRepository;
@@ -51,7 +51,7 @@ class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
         // El interruptor de circuito es un bean compartido: si otra prueba lo
         // dejo abierto, este barrido no llegaria a consultar al hub. Cada
         // prueba empieza con el circuito cerrado.
-        circuitBreakerRegistry.circuitBreaker("hubValidacion").reset();
+        circuitBreakerRegistry.circuitBreaker("hubValidation").reset();
         TestHubServer.setCaido(false);
         TestHubServer.setObservado(false);
         TestHubServer.reiniciarContador();
@@ -68,7 +68,7 @@ class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         UUID cliente = insertarClientePendiente(taller, "20601030013");
 
-        revalidacionService.ejecutar(10);
+        revalidationService.execute(10);
 
         assertEquals("VALID", estadoDe(cliente, taller),
                 "El barrido debe revalidar el cliente pendiente");
@@ -80,7 +80,7 @@ class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         UUID cliente = insertarClientePendiente(taller, "20601030013", 3600);
 
-        revalidacionService.ejecutar(10);
+        revalidationService.execute(10);
 
         assertEquals("PENDING", estadoDe(cliente, taller),
                 "Un registro que aun no ha vencido no se toca");
@@ -94,7 +94,7 @@ class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
         UUID segundo = insertarClientePendiente(taller, "20601030014");
         UUID tercero = insertarClientePendiente(taller, "20601030015");
 
-        revalidacionService.ejecutar(1);
+        revalidationService.execute(1);
 
         long validados = List.of(primero, segundo, tercero).stream()
                 .filter(id -> "VALID".equals(estadoDe(id, taller)))
@@ -110,7 +110,7 @@ class RevalidacionSweepTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         UUID cliente = insertarClientePendiente(taller, "20601030013");
 
-        revalidacionService.ejecutar(10);
+        revalidationService.execute(10);
 
         TenantContextHolder.setTenantId(taller);
         UUID tenantIdDelRegistro = unitOfWork.callInTransaction(() ->

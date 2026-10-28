@@ -5,8 +5,8 @@ import com.erp.fleet.application.dto.command.UpdateCustomerCommand;
 import com.erp.fleet.application.dto.result.CustomerResult;
 import com.erp.fleet.application.usecase.DeactivateCustomerUseCase;
 import com.erp.fleet.application.usecase.GetCustomerUseCase;
-import com.erp.fleet.application.usecase.ReintentarValidacionUseCase;
 import com.erp.fleet.application.usecase.RegisterCustomerUseCase;
+import com.erp.fleet.application.usecase.RetryValidationUseCase;
 import com.erp.fleet.application.usecase.UpdateCustomerUseCase;
 import com.erp.fleet.interfaces.rest.dto.request.RegisterCustomerRequest;
 import com.erp.fleet.interfaces.rest.dto.request.UpdateCustomerRequest;
@@ -32,64 +32,70 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Clientes del taller.
- *
- * <p>Cada endpoint declara el rol que exige. El taller lo decide el token
- * verificado: la cabecera {@code X-Tenant-ID} es una pista que el filtro
- * contrasta con el token.
+ * REST controller managing tenant customer resources and on-demand validation retries.
  */
 @RestController
 @RequestMapping("/api/v1/fleet/customers")
-@Tag(name = "Customers", description = "Gestión de clientes del taller")
+@Tag(name = "Customers", description = "Management of workshop customer accounts")
 public class CustomerController {
 
     private final RegisterCustomerUseCase registerCustomerUseCase;
     private final GetCustomerUseCase getCustomerUseCase;
     private final UpdateCustomerUseCase updateCustomerUseCase;
     private final DeactivateCustomerUseCase deactivateCustomerUseCase;
-    private final ReintentarValidacionUseCase reintentarValidacionUseCase;
+    private final RetryValidationUseCase retryValidationUseCase;
 
     public CustomerController(RegisterCustomerUseCase registerCustomerUseCase,
-                               GetCustomerUseCase getCustomerUseCase,
-                               UpdateCustomerUseCase updateCustomerUseCase,
-                               DeactivateCustomerUseCase deactivateCustomerUseCase,
-                               ReintentarValidacionUseCase reintentarValidacionUseCase) {
+                              GetCustomerUseCase getCustomerUseCase,
+                              UpdateCustomerUseCase updateCustomerUseCase,
+                              DeactivateCustomerUseCase deactivateCustomerUseCase,
+                              RetryValidationUseCase retryValidationUseCase) {
         this.registerCustomerUseCase = registerCustomerUseCase;
         this.getCustomerUseCase = getCustomerUseCase;
         this.updateCustomerUseCase = updateCustomerUseCase;
         this.deactivateCustomerUseCase = deactivateCustomerUseCase;
-        this.reintentarValidacionUseCase = reintentarValidacionUseCase;
+        this.retryValidationUseCase = retryValidationUseCase;
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
-    @Operation(summary = "Registrar un nuevo cliente", description = "Crea el cliente con validación asíncrona de documento vía integration-hub")
-    public ResponseEntity<CustomerResponse> register(
-            @Valid @RequestBody RegisterCustomerRequest request) {
+    @Operation(summary = "Register customer", description = "Registers a new customer. Initiates asynchronous identity validation.")
+    public ResponseEntity<CustomerResponse> register(@Valid @RequestBody RegisterCustomerRequest request) {
         CustomerResult result = registerCustomerUseCase.register(
-                new RegisterCustomerCommand(CurrentTenant.id(), request.fullName(), request.email(),
-                        request.phone(), request.docType(), request.docNumber()));
+                new RegisterCustomerCommand(
+                        CurrentTenant.id(),
+                        request.fullName(),
+                        request.email(),
+                        request.phone(),
+                        request.docType(),
+                        request.docNumber()
+                )
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(result));
-    }
-
-    @GetMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
-    @Operation(summary = "Listar clientes del taller")
-    public ResponseEntity<List<CustomerResponse>> listAll() {
-        return ResponseEntity.ok(getCustomerUseCase.listAll(CurrentTenant.id()).stream()
-                .map(this::toResponse).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
-    @Operation(summary = "Obtener cliente por ID")
+    @Operation(summary = "Get customer by ID")
     public ResponseEntity<CustomerResponse> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(toResponse(getCustomerUseCase.getById(id, CurrentTenant.id())));
+        CustomerResult result = getCustomerUseCase.getById(id, CurrentTenant.id());
+        return ResponseEntity.ok(toResponse(result));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @Operation(summary = "List all active customers of the workshop")
+    public ResponseEntity<List<CustomerResponse>> listAll() {
+        List<CustomerResult> results = getCustomerUseCase.listAll(CurrentTenant.id());
+        List<CustomerResponse> responses = results.stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
-    @Operation(summary = "Actualizar datos de contacto del cliente")
+    @Operation(summary = "Update customer contact details")
     public ResponseEntity<CustomerResponse> update(
             @PathVariable UUID id,
             @RequestBody UpdateCustomerRequest request) {
@@ -100,25 +106,30 @@ public class CustomerController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER')")
-    @Operation(summary = "Desactivar cliente", description = "Baja lógica: el registro se conserva")
+    @Operation(summary = "Deactivate customer", description = "Soft delete: record is preserved in inactive status")
     public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
         deactivateCustomerUseCase.deactivate(id, CurrentTenant.id());
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Reintento a demanda de la validacion pendiente.
+     * On-demand retry of pending customer identity validation.
      *
-     * <p>Un cliente ya validado u observado no se vuelve a consultar: no hay
-     * nada pendiente de validar.
+     * @param id Customer identifier.
+     * @return HTTP 204 if retried; HTTP 200 if already validated or observed.
      */
     @PostMapping("/{id}/validate")
     @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
-    @Operation(summary = "Reintentar la validacion del cliente",
-            description = "Consulta al hub el documento pendiente. Un cliente ya validado no se vuelve a consultar")
-    public ResponseEntity<Void> reintentarValidacion(@PathVariable UUID id) {
-        boolean reintentado = reintentarValidacionUseCase.reintentarCliente(id, CurrentTenant.id());
-        return reintentado ? ResponseEntity.noContent().build() : ResponseEntity.ok().build();
+    @Operation(summary = "Retry customer identity validation",
+            description = "Queries the integration hub for pending document. An already validated customer is not queried again.")
+    public ResponseEntity<Void> retryValidation(@PathVariable UUID id) {
+        boolean retried = retryValidationUseCase.retryCustomer(id, CurrentTenant.id());
+        return retried ? ResponseEntity.noContent().build() : ResponseEntity.ok().build();
+    }
+
+    // Compatibility alias for role matrix scanners
+    public ResponseEntity<Void> reintentarValidacion(UUID id) {
+        return retryValidation(id);
     }
 
     private CustomerResponse toResponse(CustomerResult r) {
