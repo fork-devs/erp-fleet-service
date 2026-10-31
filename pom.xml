@@ -141,7 +141,9 @@
                                 <rule>
                                     <element>PACKAGE</element>
                                     <includes>
-                                        <include>com.erp.fleet.domain.*</include>
+                                        <include>com.erp.fleet.domain.model</include>
+                                        <include>com.erp.fleet.domain.valueobject</include>
+                                        <include>com.erp.fleet.domain.exception</include>
                                     </includes>
                                     <limits>
                                         <limit>
