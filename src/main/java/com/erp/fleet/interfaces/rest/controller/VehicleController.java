@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * REST controller managing vehicle fleet records and on-demand validation retries.
  */
 @RestController
-@RequestMapping("/api/v1/fleet/vehicles")
+@RequestMapping({"/api/v1/fleet/vehicles", "/api/v1/vehicles"})
 @Tag(name = "Vehicles", description = "Management of customer vehicle fleet")
 public class VehicleController {
 

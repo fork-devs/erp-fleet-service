@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/fleet/appointments")
+@RequestMapping({"/api/v1/fleet/appointments", "/api/v1/appointments"})
 @Validated
 @Tag(name = "Appointments", description = "Management of workshop vehicle appointments and check-in")
 public class AppointmentController {

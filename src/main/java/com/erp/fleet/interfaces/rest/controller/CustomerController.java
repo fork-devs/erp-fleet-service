@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  * REST controller managing tenant customer resources and on-demand validation retries.
  */
 @RestController
-@RequestMapping("/api/v1/fleet/customers")
+@RequestMapping({"/api/v1/fleet/customers", "/api/v1/customers"})
 @Tag(name = "Customers", description = "Management of workshop customer accounts")
 public class CustomerController {
 
