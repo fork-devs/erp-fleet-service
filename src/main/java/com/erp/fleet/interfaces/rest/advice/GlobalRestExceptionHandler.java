@@ -98,6 +98,28 @@ public class GlobalRestExceptionHandler {
         return problema(ex.getCode(), HttpStatus.NOT_FOUND, detail, request);
     }
 
+    /** La cita no existe en el taller. */
+    @ExceptionHandler(com.erp.fleet.domain.exception.AppointmentNotFoundException.class)
+    public ProblemDetail handleAppointmentNotFound(
+            com.erp.fleet.domain.exception.AppointmentNotFoundException ex, WebRequest request) {
+        String detail = getMessage("error.fleet.appointment-not-found.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.NOT_FOUND, detail, request);
+    }
+
+    /** Conflicto de horario o estado de la cita. */
+    @ExceptionHandler(com.erp.fleet.domain.exception.AppointmentConflictException.class)
+    public ProblemDetail handleAppointmentConflict(
+            com.erp.fleet.domain.exception.AppointmentConflictException ex, WebRequest request) {
+        String detail = getMessage("error.fleet.appointment-conflict.detail", ex.getMessage());
+        return problema(ex.getCode(), HttpStatus.CONFLICT, detail, request);
+    }
+
+    /** Validaciones de argumentos o parametros de entrada. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
+        return problema("FLEET_VALIDATION_ERROR", HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     /** El cliente tiene vehiculos y no se puede dar de baja. */
     @ExceptionHandler(com.erp.fleet.domain.exception.CustomerWithVehiclesException.class)
     public ProblemDetail handleCustomerWithVehicles(
