@@ -276,4 +276,18 @@ class AppointmentControllerTest {
                 .andExpect(jsonPath("$.status").value("CANCELLED"))
                 .andExpect(jsonPath("$.cancellationReason").value("Client requested cancellation"));
     }
+
+    @Test
+    @DisplayName("DELETE /api/v1/fleet/appointments/{id} - Cancel appointment via DELETE returns 204")
+    void shouldCancelAppointmentViaDelete() throws Exception {
+        AppointmentResult result = new AppointmentResult(
+                appointmentId, tenantId, branchId, customerId, vehicleId,
+                Instant.now(), Instant.now().plusSeconds(3600), "CANCELLED", null, "Cancelled via DELETE", Instant.now(), Instant.now()
+        );
+
+        when(manageAppointmentUseCase.cancel(eq(appointmentId), eq(tenantId), any())).thenReturn(result);
+
+        mockMvc.perform(delete("/api/v1/fleet/appointments/{id}", appointmentId))
+                .andExpect(status().isNoContent());
+    }
 }

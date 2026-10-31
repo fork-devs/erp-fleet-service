@@ -2,15 +2,21 @@ package com.erp.fleet.infrastructure.config;
 
 import com.erp.fleet.application.service.AppointmentApplicationService;
 import com.erp.fleet.application.service.CustomerManagementService;
+import com.erp.fleet.application.service.CustomerRegistrationService;
+import com.erp.fleet.application.service.EmployeeRegistrationService;
 import com.erp.fleet.application.service.RevalidationService;
+import com.erp.fleet.application.service.StaffCareerHistoryService;
 import com.erp.fleet.application.service.ValidationService;
 import com.erp.fleet.application.service.VehicleManagementService;
 import com.erp.fleet.application.usecase.ValidateCustomerUseCase;
 import com.erp.fleet.application.usecase.ValidateVehicleUseCase;
 import com.erp.fleet.domain.port.AppointmentRepositoryPort;
+import com.erp.fleet.domain.port.CustomerRegistrationRepositoryPort;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
+import com.erp.fleet.domain.port.EmployeeRegistrationRepositoryPort;
 import com.erp.fleet.domain.port.IdentityValidationPort;
 import com.erp.fleet.domain.port.PendingValidationsPort;
+import com.erp.fleet.domain.port.StaffCareerHistoryRepositoryPort;
 import com.erp.fleet.domain.port.TenantContextPort;
 import com.erp.fleet.domain.port.UnitOfWork;
 import com.erp.fleet.domain.port.ValidationCachePort;
@@ -48,6 +54,25 @@ public class ApplicationServiceConfig {
                                                              CustomerRepositoryPort customerPort,
                                                              UnitOfWork unitOfWork) {
         return new VehicleManagementService(port, customerPort, unitOfWork);
+    }
+
+    @Bean
+    public CustomerRegistrationService customerRegistrationService(CustomerRegistrationRepositoryPort repository,
+                                                                   UnitOfWork unitOfWork) {
+        return new CustomerRegistrationService(repository, unitOfWork);
+    }
+
+    @Bean
+    public EmployeeRegistrationService employeeRegistrationService(EmployeeRegistrationRepositoryPort repository,
+                                                                   StaffCareerHistoryRepositoryPort careerHistoryRepository,
+                                                                   UnitOfWork unitOfWork) {
+        return new EmployeeRegistrationService(repository, careerHistoryRepository, unitOfWork);
+    }
+
+    @Bean
+    public StaffCareerHistoryService staffCareerHistoryService(StaffCareerHistoryRepositoryPort repository,
+                                                               UnitOfWork unitOfWork) {
+        return new StaffCareerHistoryService(repository, unitOfWork);
     }
 
     @Bean

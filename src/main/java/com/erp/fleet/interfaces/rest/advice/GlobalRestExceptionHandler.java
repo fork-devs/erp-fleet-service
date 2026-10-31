@@ -114,6 +114,40 @@ public class GlobalRestExceptionHandler {
         return problema(ex.getCode(), HttpStatus.CONFLICT, detail, request);
     }
 
+    @ExceptionHandler({
+            com.erp.fleet.domain.exception.CustomerRegistrationNotFoundException.class,
+            com.erp.fleet.domain.exception.EmployeeRegistrationNotFoundException.class,
+            com.erp.fleet.domain.exception.StaffCareerHistoryNotFoundException.class
+    })
+    public ProblemDetail handleRegistrationNotFound(DomainException ex, WebRequest request) {
+        return problema(ex.getCode(), HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({
+            com.erp.fleet.domain.exception.ActiveCustomerRegistrationAlreadyExistsException.class,
+            com.erp.fleet.domain.exception.ActiveEmployeeRegistrationAlreadyExistsException.class
+    })
+    public ProblemDetail handleRegistrationConflict(DomainException ex, WebRequest request) {
+        return problema(ex.getCode(), HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(com.erp.fleet.domain.exception.InvalidSpecialtyException.class)
+    public ProblemDetail handleInvalidSpecialty(
+            com.erp.fleet.domain.exception.InvalidSpecialtyException ex, WebRequest request) {
+        return problema(ex.getCode(), HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(com.erp.fleet.domain.exception.StaffHierarchyViolationException.class)
+    public ProblemDetail handleStaffHierarchyViolation(
+            com.erp.fleet.domain.exception.StaffHierarchyViolationException ex, WebRequest request) {
+        return problema(ex.getCode(), HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ProblemDetail handleIllegalState(IllegalStateException ex, WebRequest request) {
+        return problema("FLEET_CONFLICT", HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     /** Validaciones de argumentos o parametros de entrada. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {

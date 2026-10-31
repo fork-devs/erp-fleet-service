@@ -131,4 +131,12 @@ public class AppointmentController {
         AppointmentResult result = manageAppointmentUseCase.cancel(id, CurrentTenant.id(), reason);
         return ResponseEntity.ok(AppointmentResponse.from(result));
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
+    @Operation(summary = "Cancel appointment by DELETE", description = "Cancels active appointment and frees up slot")
+    public ResponseEntity<Void> cancelByDelete(@PathVariable UUID id) {
+        manageAppointmentUseCase.cancel(id, CurrentTenant.id(), "Cancelled via REST DELETE");
+        return ResponseEntity.noContent().build();
+    }
 }
