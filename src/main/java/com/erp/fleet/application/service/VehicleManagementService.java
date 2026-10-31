@@ -3,6 +3,7 @@ package com.erp.fleet.application.service;
 import com.erp.fleet.application.dto.command.RegisterVehicleCommand;
 import com.erp.fleet.application.dto.command.UpdateVehicleCommand;
 import com.erp.fleet.application.dto.result.VehicleResult;
+import com.erp.fleet.application.usecase.DeactivateVehicleUseCase;
 import com.erp.fleet.application.usecase.GetVehicleUseCase;
 import com.erp.fleet.application.usecase.RegisterVehicleUseCase;
 import com.erp.fleet.application.usecase.UpdateVehicleUseCase;
@@ -23,7 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class VehicleManagementService implements
-        RegisterVehicleUseCase, GetVehicleUseCase, UpdateVehicleUseCase {
+        RegisterVehicleUseCase, GetVehicleUseCase, UpdateVehicleUseCase, DeactivateVehicleUseCase {
 
     private final VehicleRepositoryPort vehicleRepository;
     private final CustomerRepositoryPort customerRepository;
@@ -87,6 +88,16 @@ public class VehicleManagementService implements
                     .orElseThrow(() -> new VehicleNotFoundException(cmd.vehicleId().toString()));
             vehicle.update(cmd.brand(), cmd.model(), cmd.year(), cmd.vin());
             return toResult(vehicleRepository.save(vehicle));
+        });
+    }
+
+    @Override
+    public void deactivate(UUID vehicleId, UUID tenantId) {
+        unitOfWork.runInTransaction(() -> {
+            Vehicle vehicle = vehicleRepository.findById(new VehicleId(vehicleId), new TenantId(tenantId))
+                    .orElseThrow(() -> new VehicleNotFoundException(vehicleId.toString()));
+            vehicle.deactivate();
+            vehicleRepository.save(vehicle);
         });
     }
 

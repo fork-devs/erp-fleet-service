@@ -5,12 +5,14 @@ import com.erp.fleet.application.dto.command.UpdateCustomerCommand;
 import com.erp.fleet.application.dto.result.CustomerResult;
 import com.erp.fleet.application.usecase.DeactivateCustomerUseCase;
 import com.erp.fleet.application.usecase.GetCustomerUseCase;
+import com.erp.fleet.application.usecase.GetVehicleUseCase;
 import com.erp.fleet.application.usecase.RegisterCustomerUseCase;
 import com.erp.fleet.application.usecase.RetryValidationUseCase;
 import com.erp.fleet.application.usecase.UpdateCustomerUseCase;
 import com.erp.fleet.interfaces.rest.dto.request.RegisterCustomerRequest;
 import com.erp.fleet.interfaces.rest.dto.request.UpdateCustomerRequest;
 import com.erp.fleet.interfaces.rest.dto.response.CustomerResponse;
+import com.erp.fleet.interfaces.rest.dto.response.VehicleResponse;
 import com.erp.fleet.interfaces.rest.support.CurrentTenant;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,17 +46,29 @@ public class CustomerController {
     private final UpdateCustomerUseCase updateCustomerUseCase;
     private final DeactivateCustomerUseCase deactivateCustomerUseCase;
     private final RetryValidationUseCase retryValidationUseCase;
+    private final GetVehicleUseCase getVehicleUseCase;
 
     public CustomerController(RegisterCustomerUseCase registerCustomerUseCase,
                               GetCustomerUseCase getCustomerUseCase,
                               UpdateCustomerUseCase updateCustomerUseCase,
                               DeactivateCustomerUseCase deactivateCustomerUseCase,
                               RetryValidationUseCase retryValidationUseCase) {
+        this(registerCustomerUseCase, getCustomerUseCase, updateCustomerUseCase, deactivateCustomerUseCase, retryValidationUseCase, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CustomerController(RegisterCustomerUseCase registerCustomerUseCase,
+                              GetCustomerUseCase getCustomerUseCase,
+                              UpdateCustomerUseCase updateCustomerUseCase,
+                              DeactivateCustomerUseCase deactivateCustomerUseCase,
+                              RetryValidationUseCase retryValidationUseCase,
+                              GetVehicleUseCase getVehicleUseCase) {
         this.registerCustomerUseCase = registerCustomerUseCase;
         this.getCustomerUseCase = getCustomerUseCase;
         this.updateCustomerUseCase = updateCustomerUseCase;
         this.deactivateCustomerUseCase = deactivateCustomerUseCase;
         this.retryValidationUseCase = retryValidationUseCase;
+        this.getVehicleUseCase = getVehicleUseCase;
     }
 
     @PostMapping
@@ -130,6 +144,22 @@ public class CustomerController {
     // Compatibility alias for role matrix scanners
     public ResponseEntity<Void> reintentarValidacion(UUID id) {
         return retryValidation(id);
+    }
+
+    @GetMapping("/{customerId}/vehicles")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
+    @Operation(summary = "List vehicles belonging to a specific customer")
+    public ResponseEntity<List<VehicleResponse>> listCustomerVehicles(@PathVariable UUID customerId) {
+        if (getVehicleUseCase == null) {
+            return ResponseEntity.ok(List.of());
+        }
+        List<VehicleResponse> responses = getVehicleUseCase.listByCustomer(customerId, CurrentTenant.id()).stream()
+                .map(v -> new VehicleResponse(
+                        v.id(), v.tenantId(), v.customerId(), v.plate(), v.brand(), v.model(), v.year(), v.vin(),
+                        v.validationStatus(), v.status(), v.createdAt()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
     }
 
     private CustomerResponse toResponse(CustomerResult r) {

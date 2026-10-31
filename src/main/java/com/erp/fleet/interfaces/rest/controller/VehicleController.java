@@ -3,6 +3,7 @@ package com.erp.fleet.interfaces.rest.controller;
 import com.erp.fleet.application.dto.command.RegisterVehicleCommand;
 import com.erp.fleet.application.dto.command.UpdateVehicleCommand;
 import com.erp.fleet.application.dto.result.VehicleResult;
+import com.erp.fleet.application.usecase.DeactivateVehicleUseCase;
 import com.erp.fleet.application.usecase.GetVehicleUseCase;
 import com.erp.fleet.application.usecase.RegisterVehicleUseCase;
 import com.erp.fleet.application.usecase.RetryValidationUseCase;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,15 +43,26 @@ public class VehicleController {
     private final GetVehicleUseCase getVehicleUseCase;
     private final UpdateVehicleUseCase updateVehicleUseCase;
     private final RetryValidationUseCase retryValidationUseCase;
+    private final DeactivateVehicleUseCase deactivateVehicleUseCase;
 
     public VehicleController(RegisterVehicleUseCase registerVehicleUseCase,
                              GetVehicleUseCase getVehicleUseCase,
                              UpdateVehicleUseCase updateVehicleUseCase,
                              RetryValidationUseCase retryValidationUseCase) {
+        this(registerVehicleUseCase, getVehicleUseCase, updateVehicleUseCase, retryValidationUseCase, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public VehicleController(RegisterVehicleUseCase registerVehicleUseCase,
+                             GetVehicleUseCase getVehicleUseCase,
+                             UpdateVehicleUseCase updateVehicleUseCase,
+                             RetryValidationUseCase retryValidationUseCase,
+                             DeactivateVehicleUseCase deactivateVehicleUseCase) {
         this.registerVehicleUseCase = registerVehicleUseCase;
         this.getVehicleUseCase = getVehicleUseCase;
         this.updateVehicleUseCase = updateVehicleUseCase;
         this.retryValidationUseCase = retryValidationUseCase;
+        this.deactivateVehicleUseCase = deactivateVehicleUseCase;
     }
 
     @PostMapping
@@ -94,6 +107,16 @@ public class VehicleController {
         VehicleResult result = updateVehicleUseCase.update(
                 new UpdateVehicleCommand(id, CurrentTenant.id(), request.brand(), request.model(), request.year(), request.vin()));
         return ResponseEntity.ok(toResponse(result));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
+    @Operation(summary = "Deactivate vehicle")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        if (deactivateVehicleUseCase != null) {
+            deactivateVehicleUseCase.deactivate(id, CurrentTenant.id());
+        }
+        return ResponseEntity.noContent().build();
     }
 
     /**
