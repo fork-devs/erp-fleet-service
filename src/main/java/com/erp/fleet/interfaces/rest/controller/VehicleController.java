@@ -53,7 +53,7 @@ public class VehicleController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Register vehicle", description = "Registers a vehicle assigned to a customer. Initiates asynchronous plate validation.")
     public ResponseEntity<VehicleResponse> register(@Valid @RequestBody RegisterVehicleRequest request) {
         VehicleResult result = registerVehicleUseCase.register(
@@ -63,14 +63,14 @@ public class VehicleController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "Get vehicle by ID")
     public ResponseEntity<VehicleResponse> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(toResponse(getVehicleUseCase.getById(id, CurrentTenant.id())));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "List all active vehicles of the workshop")
     public ResponseEntity<List<VehicleResponse>> listAll() {
         return ResponseEntity.ok(getVehicleUseCase.listAll(CurrentTenant.id()).stream()
@@ -78,7 +78,7 @@ public class VehicleController {
     }
 
     @GetMapping("/customer/{customerId}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "List vehicles belonging to a specific customer")
     public ResponseEntity<List<VehicleResponse>> listByCustomer(@PathVariable UUID customerId) {
         return ResponseEntity.ok(getVehicleUseCase.listByCustomer(customerId, CurrentTenant.id()).stream()
@@ -86,7 +86,7 @@ public class VehicleController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Update vehicle technical details")
     public ResponseEntity<VehicleResponse> update(
             @PathVariable UUID id,
@@ -103,7 +103,7 @@ public class VehicleController {
      * @return HTTP 204 if retried; HTTP 200 if already validated or observed.
      */
     @PostMapping("/{id}/validate")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Retry vehicle plate validation",
             description = "Queries the integration hub for pending plate. An already validated vehicle is not queried again.")
     public ResponseEntity<Void> retryValidation(@PathVariable UUID id) {

@@ -58,7 +58,7 @@ public class CustomerController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Register customer", description = "Registers a new customer. Initiates asynchronous identity validation.")
     public ResponseEntity<CustomerResponse> register(@Valid @RequestBody RegisterCustomerRequest request) {
         CustomerResult result = registerCustomerUseCase.register(
@@ -75,7 +75,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "Get customer by ID")
     public ResponseEntity<CustomerResponse> getById(@PathVariable UUID id) {
         CustomerResult result = getCustomerUseCase.getById(id, CurrentTenant.id());
@@ -83,7 +83,7 @@ public class CustomerController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "List all active customers of the workshop")
     public ResponseEntity<List<CustomerResponse>> listAll() {
         List<CustomerResult> results = getCustomerUseCase.listAll(CurrentTenant.id());
@@ -94,7 +94,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Update customer contact details")
     public ResponseEntity<CustomerResponse> update(
             @PathVariable UUID id,
@@ -105,7 +105,7 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER')")
     @Operation(summary = "Deactivate customer", description = "Soft delete: record is preserved in inactive status")
     public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
         deactivateCustomerUseCase.deactivate(id, CurrentTenant.id());
@@ -119,7 +119,7 @@ public class CustomerController {
      * @return HTTP 204 if retried; HTTP 200 if already validated or observed.
      */
     @PostMapping("/{id}/validate")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Retry customer identity validation",
             description = "Queries the integration hub for pending document. An already validated customer is not queried again.")
     public ResponseEntity<Void> retryValidation(@PathVariable UUID id) {

@@ -38,7 +38,7 @@ public class AppointmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Schedule appointment", description = "Books a new workshop appointment for customer and vehicle")
     public ResponseEntity<AppointmentResponse> schedule(@Valid @RequestBody CreateAppointmentRequest request) {
         ScheduleAppointmentCommand command = new ScheduleAppointmentCommand(
@@ -55,7 +55,7 @@ public class AppointmentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "List appointments", description = "Lists workshop appointments filtered by branch, customer, vehicle, or status")
     public ResponseEntity<List<AppointmentResponse>> list(
             @RequestParam(required = false) UUID branchId,
@@ -70,7 +70,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'TECHNICIAN', 'MECANICO')")
     @Operation(summary = "Get appointment by ID")
     public ResponseEntity<AppointmentResponse> getById(@PathVariable UUID id) {
         AppointmentResult result = manageAppointmentUseCase.getById(id, CurrentTenant.id());
@@ -78,7 +78,7 @@ public class AppointmentController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Reschedule appointment")
     public ResponseEntity<AppointmentResponse> reschedule(
             @PathVariable UUID id,
@@ -97,7 +97,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Confirm scheduled appointment")
     public ResponseEntity<AppointmentResponse> confirm(@PathVariable UUID id) {
         AppointmentResult result = manageAppointmentUseCase.confirm(id, CurrentTenant.id());
@@ -105,7 +105,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/check-in")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Check in vehicle at workshop arrival")
     public ResponseEntity<AppointmentResponse> checkIn(@PathVariable UUID id) {
         AppointmentResult result = manageAppointmentUseCase.checkIn(id, CurrentTenant.id());
@@ -113,7 +113,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Complete appointment after service delivery")
     public ResponseEntity<AppointmentResponse> complete(@PathVariable UUID id) {
         AppointmentResult result = manageAppointmentUseCase.complete(id, CurrentTenant.id());
@@ -121,7 +121,7 @@ public class AppointmentController {
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_TALLER', 'ASESOR')")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
     @Operation(summary = "Cancel appointment with reason")
     public ResponseEntity<AppointmentResponse> cancel(
             @PathVariable UUID id,
