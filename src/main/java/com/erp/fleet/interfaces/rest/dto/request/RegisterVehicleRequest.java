@@ -6,10 +6,17 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public record RegisterVehicleRequest(
-        @NotNull UUID customerId,
-        @NotBlank String plate,
+        @NotNull(message = "{validation.fleet.vehicle.customer-id.not-null}")
+        UUID customerId,
+
+        @NotBlank(message = "{validation.fleet.vehicle.plate.not-blank}")
+        String plate,
+
         String brand,
+
         String model,
+
         Integer year,
+
         String vin
 ) {}

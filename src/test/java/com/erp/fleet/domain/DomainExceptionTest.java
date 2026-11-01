@@ -7,7 +7,7 @@ import com.erp.fleet.domain.exception.DomainException;
 import com.erp.fleet.domain.exception.InvalidPlateException;
 import com.erp.fleet.domain.exception.PlateAlreadyExistsException;
 import com.erp.fleet.domain.exception.TenantContextMissingException;
-import com.erp.fleet.domain.exception.ValidacionNoDisponibleException;
+import com.erp.fleet.domain.exception.ValidationUnavailableException;
 import com.erp.fleet.domain.exception.VehicleNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class DomainExceptionTest {
         assertEquals("FLEET_VEHICLE_NOT_FOUND", new VehicleNotFoundException("v-1").getCode());
         assertEquals("FLEET_CUSTOMER_HAS_VEHICLES", new CustomerWithVehiclesException("c-1").getCode());
         assertEquals("FLEET_TENANT_CONTEXT_MISSING", new TenantContextMissingException().getCode());
-        assertEquals("FLEET_VALIDATION_UNAVAILABLE", new ValidacionNoDisponibleException("caido").getCode());
+        assertEquals("FLEET_VALIDATION_UNAVAILABLE", new ValidationUnavailableException("caido").getCode());
     }
 
     @Test

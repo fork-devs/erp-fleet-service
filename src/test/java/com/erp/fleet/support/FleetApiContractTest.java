@@ -145,13 +145,13 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("La ruta sin el prefijo del gateway no existe")
-    void laRutaSinElPrefijoDelGatewayNoExiste() throws Exception {
+    @DisplayName("La ruta directa de clientes responde 200 con paridad literal")
+    void laRutaDirectaDeClientesResponde200() throws Exception {
         UUID taller = UUID.randomUUID();
 
         mockMvc.perform(get("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"))))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk());
     }
 
     @Test

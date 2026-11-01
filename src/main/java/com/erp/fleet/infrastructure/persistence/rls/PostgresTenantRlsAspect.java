@@ -58,8 +58,7 @@ public class PostgresTenantRlsAspect {
      * admite parametros preparados. El valor es un UUID ya validado, de modo
      * que no introduce una via de inyeccion.
      */
-    @Before("execution(* com.erp.fleet.infrastructure.persistence.adapter.CustomerPersistenceAdapter.*(..))"
-            + " || execution(* com.erp.fleet.infrastructure.persistence.adapter.VehiclePersistenceAdapter.*(..))")
+    @Before("execution(* com.erp.fleet.infrastructure.persistence.adapter..*(..))")
     public void applyTenantContext() {
         UUID tenantId = TenantContextHolder.getTenantId();
         if (tenantId == null) {

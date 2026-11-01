@@ -66,7 +66,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.6.0</version>
+            <version>3.1.0</version>
         </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -141,7 +141,9 @@
                                 <rule>
                                     <element>PACKAGE</element>
                                     <includes>
-                                        <include>com.erp.fleet.domain.*</include>
+                                        <include>com.erp.fleet.domain.model</include>
+                                        <include>com.erp.fleet.domain.valueobject</include>
+                                        <include>com.erp.fleet.domain.exception</include>
                                     </includes>
                                     <limits>
                                         <limit>

@@ -13,3 +13,8 @@ target/
 .classpath
 .project
 .settings/
+
+# Local tooling & specifications
+docs/
+openspec/
+.opencode/
