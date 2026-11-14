@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.Set;
@@ -19,6 +20,7 @@ import java.util.UUID;
  * and hierarchical staff management.
  */
 @Component("multiTenancySecurityService")
+@Transactional(readOnly = true)
 public class MultiTenancySecurityService {
 
     private final SpringDataEmployeeRegistrationRepository employeeRegistrationRepository;
