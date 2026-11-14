@@ -41,7 +41,7 @@ public class PostgresTenantRlsAspect {
      * fuera de ella, el contexto de taller no se puede establecer y la
      * politica de aislamiento no seria aplicable.
      */
-    @Before("execution(* com.erp.fleet.infrastructure.persistence.adapter..*(..))")
+    @Before("execution(* com.erp.fleet.infrastructure.persistence.adapter..*(..)) || execution(* com.erp.fleet.infrastructure.security.MultiTenancySecurityService.*(..))")
     public void requireActiveTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new TenantContextMissingException(
@@ -58,7 +58,7 @@ public class PostgresTenantRlsAspect {
      * admite parametros preparados. El valor es un UUID ya validado, de modo
      * que no introduce una via de inyeccion.
      */
-    @Before("execution(* com.erp.fleet.infrastructure.persistence.adapter..*(..))")
+    @Before("execution(* com.erp.fleet.infrastructure.persistence.adapter..*(..)) || execution(* com.erp.fleet.infrastructure.security.MultiTenancySecurityService.*(..))")
     public void applyTenantContext() {
         UUID tenantId = TenantContextHolder.getTenantId();
         if (tenantId == null) {

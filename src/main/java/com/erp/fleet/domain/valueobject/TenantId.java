@@ -5,10 +5,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 public final class TenantId implements Serializable {
+    private static final long serialVersionUID = 1L;
+    public static final UUID NIL_UUID = new UUID(0L, 0L);
+
     private final UUID value;
 
     public TenantId(UUID value) {
         if (value == null) throw new IllegalArgumentException("TenantId no puede ser nulo");
+        if (NIL_UUID.equals(value)) throw new IllegalArgumentException("TenantId no puede ser el UUID nil");
         this.value = value;
     }
 
