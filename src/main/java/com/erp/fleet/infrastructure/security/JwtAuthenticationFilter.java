@@ -90,7 +90,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 UUID tenantId;
                 try {
-                    tenantId = UUID.fromString(tenantClaim.toString());
+                    tenantId = com.erp.fleet.domain.valueobject.TenantId.fromString(tenantClaim.toString()).getValue();
                 } catch (IllegalArgumentException e) {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "El taller del token no es valido");
                     return;
