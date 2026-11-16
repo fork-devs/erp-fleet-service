@@ -18,9 +18,8 @@ import javax.sql.DataSource;
  *       de ejecucion, que esta sujeto a la politica de Row-Level Security.
  *       Es la que usan la persistencia y la API.</li>
  *   <li><strong>La de plataforma</strong> ({@code platformDataSource}), con el
- *       rol que tiene BYPASSRLS. La usa EXCLUSIVAMENTE el barrido de
- *       revalidacion, que recorre los talleres con registros pendientes
- *       porque todavia no conoce el taller de cada registro.</li>
+ *       rol que tiene BYPASSRLS. Lo usan los trabajos con alcance sobre varios talleres:
+ *       el barrido de revalidación y la entrega de correos de citas.</li>
  * </ul>
  *
  * <p>La principal se declara de forma explicita porque, al existir una segunda

@@ -7,9 +7,11 @@ import com.erp.fleet.application.usecase.ManageAppointmentUseCase;
 import com.erp.fleet.application.usecase.ScheduleAppointmentUseCase;
 import com.erp.fleet.interfaces.rest.dto.request.CancelAppointmentRequest;
 import com.erp.fleet.interfaces.rest.dto.request.CreateAppointmentRequest;
+import com.erp.fleet.interfaces.rest.dto.request.CreateAlertAppointmentRequest;
 import com.erp.fleet.interfaces.rest.dto.request.UpdateAppointmentRequest;
 import com.erp.fleet.interfaces.rest.dto.response.AppointmentResponse;
 import com.erp.fleet.interfaces.rest.support.CurrentTenant;
+import com.erp.fleet.domain.model.AppointmentResources;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -52,6 +54,19 @@ public class AppointmentController {
         );
         AppointmentResult result = scheduleAppointmentUseCase.schedule(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(AppointmentResponse.from(result));
+    }
+
+    @PutMapping("/from-alerts/{alertId}")
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR')")
+    @Operation(summary = "Schedule or retrieve the appointment for an alert")
+    public ResponseEntity<AppointmentResponse> scheduleFromAlert(
+            @PathVariable UUID alertId, @Valid @RequestBody CreateAlertAppointmentRequest request) {
+        ScheduleAppointmentCommand command = new ScheduleAppointmentCommand(
+                CurrentTenant.id(), request.branchId(), null, request.vehicleId(),
+                request.scheduledStart(), request.scheduledEnd(), request.notes(), alertId,
+                AppointmentResources.from(request.bayNumber(), request.technicianId())
+        );
+        return ResponseEntity.ok(AppointmentResponse.from(scheduleAppointmentUseCase.schedule(command)));
     }
 
     @GetMapping

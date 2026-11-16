@@ -8,6 +8,8 @@ import com.erp.fleet.domain.exception.AppointmentNotFoundException;
 import com.erp.fleet.domain.exception.CustomerNotFoundException;
 import com.erp.fleet.domain.exception.VehicleNotFoundException;
 import com.erp.fleet.domain.model.Appointment;
+import com.erp.fleet.domain.model.AppointmentResources;
+import com.erp.fleet.domain.port.AppointmentNotificationPort;
 import com.erp.fleet.domain.model.AppointmentStatus;
 import com.erp.fleet.domain.model.Customer;
 import com.erp.fleet.domain.model.Vehicle;
@@ -40,6 +42,8 @@ class AppointmentApplicationServiceTest {
     private VehicleRepositoryPort vehicleRepository;
     private UnitOfWork unitOfWork;
     private AppointmentApplicationService service;
+    private WorkshopAppointmentResources resources;
+    private AppointmentNotificationPort notifications;
 
     private final UUID tenantId = UUID.randomUUID();
     private final UUID branchId = UUID.randomUUID();
@@ -60,7 +64,10 @@ class AppointmentApplicationServiceTest {
             return supplier.get();
         });
 
-        service = new AppointmentApplicationService(appointmentRepository, customerRepository, vehicleRepository, unitOfWork);
+        resources = Mockito.mock(WorkshopAppointmentResources.class);
+        notifications = Mockito.mock(AppointmentNotificationPort.class);
+        service = new AppointmentApplicationService(appointmentRepository, customerRepository, vehicleRepository, unitOfWork,
+                resources, notifications);
     }
 
     @Test
@@ -91,6 +98,42 @@ class AppointmentApplicationServiceTest {
         assertEquals(start.plusSeconds(3600), result.scheduledEnd());
         assertEquals("SCHEDULED", result.status());
         assertEquals("Check oil", result.notes());
+    }
+
+    @Test
+    void schedulesFromTheVehicleOwnerAndReusesTheAppointmentOnRetry() {
+        Instant start = Instant.now().plusSeconds(3600);
+        UUID sourceAlertId = UUID.randomUUID();
+        var assigned = new AppointmentResources(1, UUID.randomUUID());
+        ScheduleAppointmentCommand command = new ScheduleAppointmentCommand(
+                tenantId, branchId, null, vehicleId, start, start.plusSeconds(3600),
+                "P0300: Misfire detected", sourceAlertId, assigned
+        );
+        Vehicle vehicle = Mockito.mock(Vehicle.class);
+        when(vehicle.getCustomerId()).thenReturn(new CustomerId(customerId));
+        when(vehicleRepository.findById(new VehicleId(vehicleId), new TenantId(tenantId)))
+                .thenReturn(Optional.of(vehicle));
+        var customer = Mockito.mock(Customer.class);
+        when(customer.getEmail()).thenReturn("cliente@example.test");
+        when(customerRepository.findById(new CustomerId(customerId), new TenantId(tenantId)))
+                .thenReturn(Optional.of(customer));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(invocation -> {
+            Appointment saved = invocation.getArgument(0);
+            when(appointmentRepository.findById(saved.getId(), saved.getTenantId()))
+                    .thenReturn(Optional.of(saved));
+            return saved;
+        });
+
+        AppointmentResult first = service.schedule(command);
+        AppointmentResult retry = service.schedule(command);
+
+        assertEquals(customerId, first.customerId());
+        assertEquals(first.id(), retry.id());
+        assertEquals(assigned, first.resources());
+        verify(resources, Mockito.times(1)).reserve(new TenantId(tenantId), new BranchId(branchId), assigned,
+                start, start.plusSeconds(3600), null);
+        verify(notifications, Mockito.times(1)).enqueue(any(Appointment.class), eq("cliente@example.test"));
+        verify(appointmentRepository, Mockito.times(1)).save(any(Appointment.class));
     }
 
     @Test

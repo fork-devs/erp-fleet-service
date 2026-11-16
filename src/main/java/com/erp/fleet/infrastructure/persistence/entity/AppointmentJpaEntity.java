@@ -48,7 +48,22 @@ public class AppointmentJpaEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "bay_number")
+    private Integer bayNumber;
+
+    @Column(name = "technician_id")
+    private UUID technicianId;
+
     public AppointmentJpaEntity() {}
+
+    public Integer getBayNumber() { return bayNumber; }
+
+    public UUID getTechnicianId() { return technicianId; }
+
+    public void assignResources(Integer bayNumber, UUID technicianId) {
+        this.bayNumber = bayNumber;
+        this.technicianId = technicianId;
+    }
 
     public AppointmentJpaEntity(UUID id, UUID tenantId, UUID branchId, UUID customerId, UUID vehicleId,
                                 Instant scheduledStart, Instant scheduledEnd, String status,
