@@ -20,12 +20,22 @@ public class Appointment implements Serializable {
     private String cancellationReason;
     private final Instant createdAt;
     private Instant updatedAt;
+    private final AppointmentResources resources;
 
     public Appointment(AppointmentId id, TenantId tenantId, BranchId branchId,
                        CustomerId customerId, VehicleId vehicleId,
                        Instant scheduledStart, Instant scheduledEnd,
                        AppointmentStatus status, String notes,
                        String cancellationReason, Instant createdAt, Instant updatedAt) {
+        this(id, tenantId, branchId, customerId, vehicleId, scheduledStart, scheduledEnd,
+                status, notes, cancellationReason, createdAt, updatedAt, null);
+    }
+
+    public Appointment(AppointmentId id, TenantId tenantId, BranchId branchId,
+                       CustomerId customerId, VehicleId vehicleId,
+                       Instant scheduledStart, Instant scheduledEnd, AppointmentStatus status,
+                       String notes, String cancellationReason, Instant createdAt, Instant updatedAt,
+                       AppointmentResources resources) {
         if (id == null || tenantId == null || branchId == null || customerId == null || vehicleId == null) {
             throw new IllegalArgumentException("Campos obligatorios de Appointment no pueden ser nulos");
         }
@@ -37,6 +47,7 @@ public class Appointment implements Serializable {
         }
 
         this.id = id;
+        this.resources = resources;
         this.tenantId = tenantId;
         this.branchId = branchId;
         this.customerId = customerId;
@@ -53,6 +64,12 @@ public class Appointment implements Serializable {
     public static Appointment create(AppointmentId id, TenantId tenantId, BranchId branchId,
                                     CustomerId customerId, VehicleId vehicleId,
                                     Instant scheduledStart, Instant scheduledEnd, String notes) {
+        return create(id, tenantId, branchId, customerId, vehicleId, scheduledStart, scheduledEnd, notes, null);
+    }
+
+    public static Appointment create(AppointmentId id, TenantId tenantId, BranchId branchId,
+                                    CustomerId customerId, VehicleId vehicleId, Instant scheduledStart,
+                                    Instant scheduledEnd, String notes, AppointmentResources resources) {
         Instant effectiveEnd = scheduledEnd != null ? scheduledEnd : scheduledStart.plusSeconds(3600);
         return new Appointment(
                 id != null ? id : AppointmentId.generate(),
@@ -66,7 +83,8 @@ public class Appointment implements Serializable {
                 notes,
                 null,
                 Instant.now(),
-                Instant.now()
+                Instant.now(),
+                resources
         );
     }
 
@@ -122,6 +140,10 @@ public class Appointment implements Serializable {
             this.notes = newNotes.length() > 500 ? newNotes.substring(0, 500) : newNotes;
         }
         this.updatedAt = Instant.now();
+    }
+
+    public AppointmentResources getResources() {
+        return resources;
     }
 
     public AppointmentId getId() {

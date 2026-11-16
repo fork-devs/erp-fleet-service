@@ -216,6 +216,11 @@ public class GlobalRestExceptionHandler {
      * un error generico. La traza va al registro, que es del operador; el
      * cliente no recibe ni la clase de la excepcion ni su mensaje.
      */
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ProblemDetail responseStatus(org.springframework.web.server.ResponseStatusException ex) {
+        return ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason() == null ? "Error de servicio" : ex.getReason());
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneral(Exception ex, WebRequest request) {
         log.error("Error no previsto en {} {}", request.getDescription(false), ex.getMessage(), ex);

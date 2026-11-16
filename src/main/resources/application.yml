@@ -61,6 +61,14 @@ spring:
       timeout: 2s
 
 erp:
+  tenant-service:
+    url: ${TENANT_SERVICE_URL:http://erp-tenant-service:8082}
+  appointment-email:
+    enabled: ${APPOINTMENT_EMAIL_ENABLED:false}
+    endpoint: ${APPOINTMENT_EMAIL_ENDPOINT:https://api.brevo.com/v3/smtp/email}
+    key: ${APPOINTMENT_EMAIL_API_KEY:}
+    sender: ${APPOINTMENT_EMAIL_SENDER:}
+    interval: ${APPOINTMENT_EMAIL_INTERVAL:5s}
   auth:
     # El conjunto de claves del emisor se publica en /.well-known/jwks.json.
     # La URL debe usar un esquema cifrado; el arranque falla de forma
@@ -80,7 +88,7 @@ erp:
     ruc-ttl: ${VALIDACION_CACHE_RUC_TTL:30d}
     placa-ttl: ${VALIDACION_CACHE_PLACA_TTL:7d}
   platform-role:
-    # Rol con BYPASSRLS, usado EXCLUSIVAMENTE por el barrido de revalidacion,
+    # Rol con BYPASSRLS para el relé de correo y el barrido de revalidacion,
     # que recorre los talleres con registros pendientes y todavia no conoce el
     # taller de cada uno. Su credencial vive separada de la de la aplicacion.
     user: ${ERP_PLATFORM_DB_USER:erp_fleet_platform}

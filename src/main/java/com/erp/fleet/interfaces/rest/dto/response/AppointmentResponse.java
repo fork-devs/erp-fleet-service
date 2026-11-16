@@ -16,7 +16,9 @@ public record AppointmentResponse(
         String notes,
         String cancellationReason,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Integer bayNumber,
+        UUID technicianId
 ) {
     public static AppointmentResponse from(AppointmentResult r) {
         return new AppointmentResponse(
@@ -30,7 +32,9 @@ public record AppointmentResponse(
                 r.notes(),
                 r.cancellationReason(),
                 r.createdAt(),
-                r.updatedAt()
+                r.updatedAt(),
+                r.resources() == null ? null : r.resources().bayNumber(),
+                r.resources() == null ? null : r.resources().technicianId()
         );
     }
 }

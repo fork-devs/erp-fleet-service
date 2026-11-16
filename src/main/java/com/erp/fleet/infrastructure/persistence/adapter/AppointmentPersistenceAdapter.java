@@ -1,6 +1,7 @@
 package com.erp.fleet.infrastructure.persistence.adapter;
 
 import com.erp.fleet.domain.model.Appointment;
+import com.erp.fleet.domain.model.AppointmentResources;
 import com.erp.fleet.domain.model.AppointmentStatus;
 import com.erp.fleet.domain.port.AppointmentRepositoryPort;
 import com.erp.fleet.domain.valueobject.*;
@@ -20,6 +21,11 @@ public class AppointmentPersistenceAdapter implements AppointmentRepositoryPort 
 
     public AppointmentPersistenceAdapter(SpringDataAppointmentRepository repo) {
         this.repo = repo;
+    }
+
+    @Override
+    public void lockSchedule(TenantId tenantId, String key) {
+        repo.lockSchedule(tenantId.getValue() + ":" + key);
     }
 
     @Override
@@ -47,6 +53,13 @@ public class AppointmentPersistenceAdapter implements AppointmentRepositoryPort 
         return repo.findWithFilters(tenantId.getValue(), branchUid, customerUid, vehicleUid, statusStr).stream()
                 .map(AppointmentPersistenceMapper::toDomain)
                 .toList();
+    }
+
+    @Override
+    public boolean hasOverlappingResources(TenantId tenantId, BranchId branchId, AppointmentResources resources,
+                                           Instant start, Instant end, AppointmentId excludeId) {
+        return repo.hasOverlappingResources(tenantId.getValue(), branchId.getValue(), resources.bayNumber(),
+                resources.technicianId(), start, end, excludeId != null ? excludeId.getValue() : null);
     }
 
     @Override

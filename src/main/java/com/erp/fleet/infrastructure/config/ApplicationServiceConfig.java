@@ -1,6 +1,7 @@
 package com.erp.fleet.infrastructure.config;
 
 import com.erp.fleet.application.service.AppointmentApplicationService;
+import com.erp.fleet.application.service.WorkshopAppointmentResources;
 import com.erp.fleet.application.service.CustomerManagementService;
 import com.erp.fleet.application.service.CustomerRegistrationService;
 import com.erp.fleet.application.service.EmployeeRegistrationService;
@@ -11,6 +12,7 @@ import com.erp.fleet.application.service.VehicleManagementService;
 import com.erp.fleet.application.usecase.ValidateCustomerUseCase;
 import com.erp.fleet.application.usecase.ValidateVehicleUseCase;
 import com.erp.fleet.domain.port.AppointmentRepositoryPort;
+import com.erp.fleet.domain.port.AppointmentNotificationPort;
 import com.erp.fleet.domain.port.CustomerRegistrationRepositoryPort;
 import com.erp.fleet.domain.port.CustomerRepositoryPort;
 import com.erp.fleet.domain.port.EmployeeRegistrationRepositoryPort;
@@ -79,8 +81,11 @@ public class ApplicationServiceConfig {
     public AppointmentApplicationService appointmentApplicationService(AppointmentRepositoryPort appointmentRepository,
                                                                        CustomerRepositoryPort customerRepository,
                                                                        VehicleRepositoryPort vehicleRepository,
-                                                                       UnitOfWork unitOfWork) {
-        return new AppointmentApplicationService(appointmentRepository, customerRepository, vehicleRepository, unitOfWork);
+                                                                       UnitOfWork unitOfWork,
+                                                                       WorkshopAppointmentResources resources,
+                                                                       AppointmentNotificationPort notifications) {
+        return new AppointmentApplicationService(appointmentRepository, customerRepository, vehicleRepository,
+                unitOfWork, resources, notifications);
     }
 
     @Bean

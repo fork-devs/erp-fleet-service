@@ -2,6 +2,7 @@ package com.erp.fleet.infrastructure.persistence.mapper;
 
 import com.erp.fleet.domain.model.Appointment;
 import com.erp.fleet.domain.model.AppointmentStatus;
+import com.erp.fleet.domain.model.AppointmentResources;
 import com.erp.fleet.domain.valueobject.*;
 import com.erp.fleet.infrastructure.persistence.entity.AppointmentJpaEntity;
 
@@ -10,7 +11,7 @@ public final class AppointmentPersistenceMapper {
     private AppointmentPersistenceMapper() {}
 
     public static AppointmentJpaEntity toEntity(Appointment a) {
-        return new AppointmentJpaEntity(
+        var entity = new AppointmentJpaEntity(
                 a.getId().getValue(),
                 a.getTenantId().getValue(),
                 a.getBranchId().getValue(),
@@ -24,6 +25,10 @@ public final class AppointmentPersistenceMapper {
                 a.getCreatedAt(),
                 a.getUpdatedAt()
         );
+        if (a.getResources() != null) {
+            entity.assignResources(a.getResources().bayNumber(), a.getResources().technicianId());
+        }
+        return entity;
     }
 
     public static Appointment toDomain(AppointmentJpaEntity e) {
@@ -39,7 +44,8 @@ public final class AppointmentPersistenceMapper {
                 e.getNotes(),
                 e.getCancellationReason(),
                 e.getCreatedAt(),
-                e.getUpdatedAt()
+                e.getUpdatedAt(),
+                AppointmentResources.from(e.getBayNumber(), e.getTechnicianId())
         );
     }
 }
