@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
     year              INTEGER,
     vin               VARCHAR(50),
     validation_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+    status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at        TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT uq_vehicle_tenant_plate UNIQUE (tenant_id, plate)
 );

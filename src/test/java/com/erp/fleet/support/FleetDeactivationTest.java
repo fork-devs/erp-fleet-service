@@ -66,7 +66,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
         mockMvc.perform(get("/api/v1/fleet/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("INACTIVO"));
+                .andExpect(jsonPath("$.status").value("INACTIVE"));
     }
 
     @Test
@@ -98,7 +98,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
         mockMvc.perform(get("/api/v1/fleet/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ACTIVO"));
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 
     @Test
