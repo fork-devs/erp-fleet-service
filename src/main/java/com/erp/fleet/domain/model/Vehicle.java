@@ -55,7 +55,7 @@ public class Vehicle implements Serializable {
         this.year = year;
         this.vin = vin;
         this.validationStatus = validationStatus != null ? validationStatus : ValidationStatus.PENDING;
-        this.status = status != null ? status : VehicleStatus.ACTIVO;
+        this.status = status != null ? status : VehicleStatus.ACTIVE;
         this.createdAt = createdAt != null ? createdAt : Instant.now();
         this.numeroMotor = numeroMotor;
         this.color = color;
@@ -68,7 +68,7 @@ public class Vehicle implements Serializable {
     public static Vehicle create(TenantId tenantId, CustomerId customerId, Plate plate,
                                   String brand, String model, Integer year, String vin) {
         return new Vehicle(VehicleId.generate(), tenantId, customerId, plate, brand, model, year, vin,
-                ValidationStatus.PENDING, VehicleStatus.ACTIVO, Instant.now());
+                ValidationStatus.PENDING, VehicleStatus.ACTIVE, Instant.now());
     }
 
     /**
@@ -103,8 +103,8 @@ public class Vehicle implements Serializable {
         this.nextValidationAt = nextValidationAt;
     }
 
-    public void deactivate() { this.status = VehicleStatus.INACTIVO; }
-    public boolean isActive() { return this.status == VehicleStatus.ACTIVO; }
+    public void deactivate() { this.status = VehicleStatus.INACTIVE; }
+    public boolean isActive() { return this.status == VehicleStatus.ACTIVE; }
 
     public void update(String brand, String model, Integer year, String vin) {
         if (brand != null) this.brand = brand;

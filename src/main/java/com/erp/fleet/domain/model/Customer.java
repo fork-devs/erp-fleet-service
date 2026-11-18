@@ -53,7 +53,7 @@ public class Customer implements Serializable {
         this.phone = phone;
         this.docNumber = docNumber;
         this.validationStatus = validationStatus != null ? validationStatus : ValidationStatus.PENDING;
-        this.status = status != null ? status : CustomerStatus.ACTIVO;
+        this.status = status != null ? status : CustomerStatus.ACTIVE;
         this.createdAt = createdAt != null ? createdAt : Instant.now();
         this.razonSocial = razonSocial;
         this.estadoRuc = estadoRuc;
@@ -67,7 +67,7 @@ public class Customer implements Serializable {
     public static Customer create(TenantId tenantId, String fullName, String email,
                                    String phone, DocNumber docNumber) {
         return new Customer(CustomerId.generate(), tenantId, fullName, email, phone,
-                docNumber, ValidationStatus.PENDING, CustomerStatus.ACTIVO, Instant.now());
+                docNumber, ValidationStatus.PENDING, CustomerStatus.ACTIVE, Instant.now());
     }
 
     /**
@@ -100,9 +100,9 @@ public class Customer implements Serializable {
         this.nextValidationAt = nextValidationAt;
     }
 
-    public void deactivate() { this.status = CustomerStatus.INACTIVO; }
-    public void activate() { this.status = CustomerStatus.ACTIVO; }
-    public boolean isActive() { return this.status == CustomerStatus.ACTIVO; }
+    public void deactivate() { this.status = CustomerStatus.INACTIVE; }
+    public void activate() { this.status = CustomerStatus.ACTIVE; }
+    public boolean isActive() { return this.status == CustomerStatus.ACTIVE; }
 
     public void update(String fullName, String email, String phone) {
         if (fullName != null && !fullName.trim().isEmpty()) this.fullName = fullName.trim();
