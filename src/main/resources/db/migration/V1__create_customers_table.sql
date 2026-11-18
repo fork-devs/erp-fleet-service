@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS customers (
     doc_type          VARCHAR(10) NOT NULL,
     doc_number        VARCHAR(20) NOT NULL,
     validation_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+    status            VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at        TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT uq_customer_tenant_doc UNIQUE (tenant_id, doc_number)
 );
