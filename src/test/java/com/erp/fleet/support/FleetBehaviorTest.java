@@ -70,7 +70,7 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
         String clienteId = clienteDelTaller();
         String placa = placa();
 
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"" + placa
@@ -84,13 +84,13 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
     @DisplayName("El listado del taller devuelve sus vehiculos")
     void elListadoDelTallerDevuelveSusVehiculos() throws Exception {
         String clienteId = clienteDelTaller();
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"" + placa() + "\"}"))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/api/v1/fleet/vehicles")
+        mockMvc.perform(get("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
@@ -100,13 +100,13 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
     @DisplayName("Los vehiculos de un cliente se listan aparte")
     void losVehiculosDeUnClienteSeListanAparte() throws Exception {
         String clienteId = clienteDelTaller();
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"" + placa() + "\"}"))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/api/v1/fleet/vehicles/customer/{customerId}", clienteId)
+        mockMvc.perform(get("/api/v1/vehicles/customer/{customerId}", clienteId)
                         .header("Authorization", "Bearer " + token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
@@ -118,7 +118,7 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
         String clienteId = clienteDelTaller();
         String placa = placa();
 
-        String vehiculoId = mockMvc.perform(post("/api/v1/fleet/vehicles")
+        String vehiculoId = mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"" + placa + "\"}"))
@@ -127,7 +127,7 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
 
         String id = vehiculoId.replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(put("/api/v1/fleet/vehicles/{id}", id)
+        mockMvc.perform(put("/api/v1/vehicles/{id}", id)
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"year\":2022,\"model\":\"Corolla Cross\"}"))
@@ -141,7 +141,7 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
     void laActualizacionDelClienteGuardaLosDatosDeContacto() throws Exception {
         String clienteId = clienteDelTaller();
 
-        mockMvc.perform(put("/api/v1/fleet/customers/{id}", clienteId)
+        mockMvc.perform(put("/api/v1/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"phone\":\"999888777\"}"))
@@ -154,7 +154,7 @@ class FleetBehaviorTest extends AbstractPostgresIntegrationTest {
     void unVehiculoConUnaPlacaInvalidaSeRechaza() throws Exception {
         String clienteId = clienteDelTaller();
 
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"NO-VALIDA\"}"))

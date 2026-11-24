@@ -183,7 +183,7 @@ class FleetRegistrationsIntegrationTest extends AbstractPostgresIntegrationTest 
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
-        // 8. Schedule an appointment and delete via DELETE /api/v1/fleet/appointments/{id}
+        // 8. Schedule an appointment and delete via DELETE /api/v1/appointments/{id}
         TenantContextHolder.setTenantId(tenantId);
         AppointmentResult appointment = scheduleAppointmentUseCase.schedule(new ScheduleAppointmentCommand(
                 tenantId, branchId, customer.id(), vehicle.id(),
@@ -191,7 +191,7 @@ class FleetRegistrationsIntegrationTest extends AbstractPostgresIntegrationTest 
         ));
         TenantContextHolder.clear();
 
-        mockMvc.perform(delete("/api/v1/fleet/appointments/{id}", appointment.id())
+        mockMvc.perform(delete("/api/v1/appointments/{id}", appointment.id())
                         .header("Authorization", "Bearer " + adminToken()))
                 .andExpect(status().isNoContent());
 

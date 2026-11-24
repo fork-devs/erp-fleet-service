@@ -31,10 +31,10 @@ class FleetOpenApiTest extends AbstractPostgresIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
-        assertTrue(documento.contains("/api/v1/fleet/customers"),
+        assertTrue(documento.contains("/api/v1/customers"),
                 "El documento debe declarar los endpoints bajo el prefijo que reenvia el gateway");
-        assertTrue(documento.contains("/api/v1/fleet/vehicles"));
-        assertTrue(documento.contains("/api/v1/fleet/customers/{id}/validate"),
+        assertTrue(documento.contains("/api/v1/vehicles"));
+        assertTrue(documento.contains("/api/v1/customers/{id}/validate"),
                 "El documento debe declarar el reintento de la validacion");
         assertTrue(documento.contains("ADMIN_TALLER"),
                 "El documento debe declarar el rol que exige cada endpoint");
