@@ -8,6 +8,10 @@ import com.erp.fleet.application.usecase.GetVehicleUseCase;
 import com.erp.fleet.application.usecase.RegisterVehicleUseCase;
 import com.erp.fleet.application.usecase.RetryValidationUseCase;
 import com.erp.fleet.application.usecase.UpdateVehicleUseCase;
+import com.erp.fleet.domain.exception.VehicleNotFoundException;
+import com.erp.fleet.infrastructure.adapter.external.MediaUploadClient;
+import com.erp.fleet.infrastructure.persistence.entity.VehicleJpaEntity;
+import com.erp.fleet.infrastructure.persistence.repository.SpringDataVehicleRepository;
 import com.erp.fleet.interfaces.rest.dto.request.RegisterVehicleRequest;
 import com.erp.fleet.interfaces.rest.dto.request.UpdateVehicleRequest;
 import com.erp.fleet.interfaces.rest.dto.response.VehicleResponse;
@@ -15,9 +19,12 @@ import com.erp.fleet.interfaces.rest.support.CurrentTenant;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,7 +32,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -44,6 +53,12 @@ public class VehicleController {
     private final UpdateVehicleUseCase updateVehicleUseCase;
     private final RetryValidationUseCase retryValidationUseCase;
     private final DeactivateVehicleUseCase deactivateVehicleUseCase;
+
+    @Autowired(required = false)
+    private MediaUploadClient mediaUploadClient;
+
+    @Autowired(required = false)
+    private SpringDataVehicleRepository vehicleRepository;
 
     public VehicleController(RegisterVehicleUseCase registerVehicleUseCase,
                              GetVehicleUseCase getVehicleUseCase,
@@ -107,6 +122,28 @@ public class VehicleController {
         VehicleResult result = updateVehicleUseCase.update(
                 new UpdateVehicleCommand(id, CurrentTenant.id(), request.brand(), request.model(), request.year(), request.vin()));
         return ResponseEntity.ok(toResponse(result));
+    }
+
+    @PutMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPERADMIN', 'WORKSHOP_ADMIN', 'ADMIN_TALLER', 'SERVICE_ADVISOR', 'ASESOR', 'CUSTOMER', 'CLIENTE')")
+    @Transactional
+    @Operation(summary = "Upload vehicle image to Cloudflare R2")
+    public ResponseEntity<VehicleResponse> uploadImage(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file) {
+        if (mediaUploadClient == null || vehicleRepository == null) {
+            throw new IllegalStateException("Media upload dependencies are not configured");
+        }
+        VehicleJpaEntity entity = vehicleRepository.findById(id)
+                .orElseThrow(() -> new VehicleNotFoundException("Vehicle not found: " + id));
+        MediaUploadClient.UploadedMedia uploaded = mediaUploadClient.upload(file, "vehicles/" + id);
+        entity.setImageUrl(uploaded.url());
+        vehicleRepository.save(entity);
+        return ResponseEntity.ok(new VehicleResponse(
+                entity.getId(), entity.getTenantId(), entity.getCustomerId(), entity.getPlate(),
+                entity.getBrand(), entity.getModel(), entity.getYear(), entity.getVin(),
+                entity.getValidationStatus(), entity.getStatus(), entity.getCreatedAt(), entity.getImageUrl()
+        ));
     }
 
     @DeleteMapping("/{id}")

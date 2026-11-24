@@ -14,5 +14,22 @@ public record VehicleResponse(
         String vin,
         String validationStatus,
         String status,
-        Instant createdAt
-) {}
+        Instant createdAt,
+        String imageUrl
+) {
+    public VehicleResponse(
+            UUID id,
+            UUID tenantId,
+            UUID customerId,
+            String plate,
+            String brand,
+            String model,
+            Integer year,
+            String vin,
+            String validationStatus,
+            String status,
+            Instant createdAt
+    ) {
+        this(id, tenantId, customerId, plate, brand, model, year, vin, validationStatus, status, createdAt, null);
+    }
+}
