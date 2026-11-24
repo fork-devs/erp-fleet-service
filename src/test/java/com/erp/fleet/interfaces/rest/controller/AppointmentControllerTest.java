@@ -63,7 +63,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments - Successfully schedule appointment")
+    @DisplayName("POST /api/v1/appointments - Successfully schedule appointment")
     void shouldScheduleAppointment() throws Exception {
         Instant start = Instant.now().plusSeconds(3600);
         Instant end = start.plusSeconds(3600);
@@ -86,7 +86,7 @@ class AppointmentControllerTest {
             }
             """, branchId, customerId, vehicleId, start, end);
 
-        mockMvc.perform(post("/api/v1/fleet/appointments")
+        mockMvc.perform(post("/api/v1/appointments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isCreated())
@@ -96,7 +96,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments - Conflict on overlap returns 409")
+    @DisplayName("POST /api/v1/appointments - Conflict on overlap returns 409")
     void shouldReturnConflictOnOverlap() throws Exception {
         Instant start = Instant.now().plusSeconds(3600);
 
@@ -112,7 +112,7 @@ class AppointmentControllerTest {
             }
             """, branchId, customerId, vehicleId, start);
 
-        mockMvc.perform(post("/api/v1/fleet/appointments")
+        mockMvc.perform(post("/api/v1/appointments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isConflict())
@@ -120,7 +120,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments - Missing branchId returns 400")
+    @DisplayName("POST /api/v1/appointments - Missing branchId returns 400")
     void shouldReturnBadRequestOnValidationFailure() throws Exception {
         String payload = String.format("""
             {
@@ -130,14 +130,14 @@ class AppointmentControllerTest {
             }
             """, customerId, vehicleId, Instant.now().plusSeconds(3600));
 
-        mockMvc.perform(post("/api/v1/fleet/appointments")
+        mockMvc.perform(post("/api/v1/appointments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("GET /api/v1/fleet/appointments - List appointments")
+    @DisplayName("GET /api/v1/appointments - List appointments")
     void shouldListAppointments() throws Exception {
         Instant start = Instant.now().plusSeconds(3600);
         AppointmentResult result = new AppointmentResult(
@@ -148,7 +148,7 @@ class AppointmentControllerTest {
         when(manageAppointmentUseCase.list(eq(tenantId), eq(branchId), eq(null), eq(null), eq("SCHEDULED")))
                 .thenReturn(List.of(result));
 
-        mockMvc.perform(get("/api/v1/fleet/appointments")
+        mockMvc.perform(get("/api/v1/appointments")
                         .param("branchId", branchId.toString())
                         .param("status", "SCHEDULED"))
                 .andExpect(status().isOk())
@@ -157,7 +157,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/fleet/appointments/{id} - Get appointment by ID")
+    @DisplayName("GET /api/v1/appointments/{id} - Get appointment by ID")
     void shouldGetAppointmentById() throws Exception {
         Instant start = Instant.now().plusSeconds(3600);
         AppointmentResult result = new AppointmentResult(
@@ -167,25 +167,25 @@ class AppointmentControllerTest {
 
         when(manageAppointmentUseCase.getById(appointmentId, tenantId)).thenReturn(result);
 
-        mockMvc.perform(get("/api/v1/fleet/appointments/{id}", appointmentId))
+        mockMvc.perform(get("/api/v1/appointments/{id}", appointmentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(appointmentId.toString()))
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
     }
 
     @Test
-    @DisplayName("GET /api/v1/fleet/appointments/{id} - Not found returns 404")
+    @DisplayName("GET /api/v1/appointments/{id} - Not found returns 404")
     void shouldReturnNotFoundWhenAppointmentMissing() throws Exception {
         when(manageAppointmentUseCase.getById(appointmentId, tenantId))
                 .thenThrow(new AppointmentNotFoundException(appointmentId.toString()));
 
-        mockMvc.perform(get("/api/v1/fleet/appointments/{id}", appointmentId))
+        mockMvc.perform(get("/api/v1/appointments/{id}", appointmentId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("FLEET_APPOINTMENT_NOT_FOUND"));
     }
 
     @Test
-    @DisplayName("PUT /api/v1/fleet/appointments/{id} - Reschedule appointment")
+    @DisplayName("PUT /api/v1/appointments/{id} - Reschedule appointment")
     void shouldRescheduleAppointment() throws Exception {
         Instant newStart = Instant.now().plusSeconds(7200);
         Instant newEnd = newStart.plusSeconds(3600);
@@ -206,7 +206,7 @@ class AppointmentControllerTest {
             }
             """, branchId, newStart, newEnd);
 
-        mockMvc.perform(put("/api/v1/fleet/appointments/{id}", appointmentId)
+        mockMvc.perform(put("/api/v1/appointments/{id}", appointmentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
@@ -215,7 +215,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments/{id}/confirm - Confirm appointment")
+    @DisplayName("POST /api/v1/appointments/{id}/confirm - Confirm appointment")
     void shouldConfirmAppointment() throws Exception {
         AppointmentResult result = new AppointmentResult(
                 appointmentId, tenantId, branchId, customerId, vehicleId,
@@ -224,13 +224,13 @@ class AppointmentControllerTest {
 
         when(manageAppointmentUseCase.confirm(appointmentId, tenantId)).thenReturn(result);
 
-        mockMvc.perform(post("/api/v1/fleet/appointments/{id}/confirm", appointmentId))
+        mockMvc.perform(post("/api/v1/appointments/{id}/confirm", appointmentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments/{id}/check-in - Check in vehicle")
+    @DisplayName("POST /api/v1/appointments/{id}/check-in - Check in vehicle")
     void shouldCheckInVehicle() throws Exception {
         AppointmentResult result = new AppointmentResult(
                 appointmentId, tenantId, branchId, customerId, vehicleId,
@@ -239,13 +239,13 @@ class AppointmentControllerTest {
 
         when(manageAppointmentUseCase.checkIn(appointmentId, tenantId)).thenReturn(result);
 
-        mockMvc.perform(post("/api/v1/fleet/appointments/{id}/check-in", appointmentId))
+        mockMvc.perform(post("/api/v1/appointments/{id}/check-in", appointmentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments/{id}/complete - Complete appointment")
+    @DisplayName("POST /api/v1/appointments/{id}/complete - Complete appointment")
     void shouldCompleteAppointment() throws Exception {
         AppointmentResult result = new AppointmentResult(
                 appointmentId, tenantId, branchId, customerId, vehicleId,
@@ -254,13 +254,13 @@ class AppointmentControllerTest {
 
         when(manageAppointmentUseCase.complete(appointmentId, tenantId)).thenReturn(result);
 
-        mockMvc.perform(post("/api/v1/fleet/appointments/{id}/complete", appointmentId))
+        mockMvc.perform(post("/api/v1/appointments/{id}/complete", appointmentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
     }
 
     @Test
-    @DisplayName("POST /api/v1/fleet/appointments/{id}/cancel - Cancel appointment with reason")
+    @DisplayName("POST /api/v1/appointments/{id}/cancel - Cancel appointment with reason")
     void shouldCancelAppointment() throws Exception {
         AppointmentResult result = new AppointmentResult(
                 appointmentId, tenantId, branchId, customerId, vehicleId,
@@ -269,7 +269,7 @@ class AppointmentControllerTest {
 
         when(manageAppointmentUseCase.cancel(appointmentId, tenantId, "Client requested cancellation")).thenReturn(result);
 
-        mockMvc.perform(post("/api/v1/fleet/appointments/{id}/cancel", appointmentId)
+        mockMvc.perform(post("/api/v1/appointments/{id}/cancel", appointmentId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\": \"Client requested cancellation\"}"))
                 .andExpect(status().isOk())
@@ -278,7 +278,7 @@ class AppointmentControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/v1/fleet/appointments/{id} - Cancel appointment via DELETE returns 204")
+    @DisplayName("DELETE /api/v1/appointments/{id} - Cancel appointment via DELETE returns 204")
     void shouldCancelAppointmentViaDelete() throws Exception {
         AppointmentResult result = new AppointmentResult(
                 appointmentId, tenantId, branchId, customerId, vehicleId,
@@ -287,7 +287,7 @@ class AppointmentControllerTest {
 
         when(manageAppointmentUseCase.cancel(eq(appointmentId), eq(tenantId), any())).thenReturn(result);
 
-        mockMvc.perform(delete("/api/v1/fleet/appointments/{id}", appointmentId))
+        mockMvc.perform(delete("/api/v1/appointments/{id}", appointmentId))
                 .andExpect(status().isNoContent());
     }
 }

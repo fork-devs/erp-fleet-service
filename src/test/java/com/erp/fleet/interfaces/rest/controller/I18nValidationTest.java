@@ -73,7 +73,7 @@ class I18nValidationTest {
     @Test
     @DisplayName("Accept-Language: es debe retornar mensaje de validación en español")
     void shouldReturnValidationErrorsInSpanish() throws Exception {
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Accept-Language", "es")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(INVALID_PAYLOAD))
@@ -85,7 +85,7 @@ class I18nValidationTest {
     @Test
     @DisplayName("Accept-Language: en debe retornar mensaje de validación en inglés")
     void shouldReturnValidationErrorsInEnglish() throws Exception {
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Accept-Language", "en")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(INVALID_PAYLOAD))
@@ -97,7 +97,7 @@ class I18nValidationTest {
     @Test
     @DisplayName("Sin header Accept-Language debe usar locale por defecto (es)")
     void shouldFallbackToDefaultLocaleWhenHeaderMissing() throws Exception {
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(INVALID_PAYLOAD))
                 .andExpect(status().isBadRequest())
