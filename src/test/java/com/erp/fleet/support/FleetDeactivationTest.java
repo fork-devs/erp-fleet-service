@@ -51,7 +51,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
         String token = TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"));
         String documento = documento();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente sin vehiculos\",\"docType\":\"RUC\",\"docNumber\":\"" + documento + "\"}"))
@@ -59,11 +59,11 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
 
         String clienteId = idDelUltimoCliente(taller);
 
-        mockMvc.perform(delete("/api/v1/fleet/customers/{id}", clienteId)
+        mockMvc.perform(delete("/api/v1/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/v1/fleet/customers/{id}", clienteId)
+        mockMvc.perform(get("/api/v1/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("INACTIVE"));
@@ -76,7 +76,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
         String token = TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"));
         String documento = documento();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente con vehiculo\",\"docType\":\"RUC\",\"docNumber\":\"" + documento + "\"}"))
@@ -84,18 +84,18 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
 
         String clienteId = idDelUltimoCliente(taller);
 
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"XYZ-%03d\"}".formatted(Math.abs(UUID.randomUUID().hashCode() % 1000))))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(delete("/api/v1/fleet/customers/{id}", clienteId)
+        mockMvc.perform(delete("/api/v1/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("FLEET_CUSTOMER_HAS_VEHICLES"));
 
-        mockMvc.perform(get("/api/v1/fleet/customers/{id}", clienteId)
+        mockMvc.perform(get("/api/v1/customers/{id}", clienteId)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
@@ -107,7 +107,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         UUID otroTaller = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("ADMIN_TALLER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente del taller\",\"docType\":\"RUC\",\"docNumber\":\"" + documento() + "\"}"))
@@ -115,7 +115,7 @@ class FleetDeactivationTest extends AbstractPostgresIntegrationTest {
 
         String clienteId = idDelUltimoCliente(taller);
 
-        mockMvc.perform(get("/api/v1/fleet/vehicles/customer/{customerId}", clienteId)
+        mockMvc.perform(get("/api/v1/vehicles/customer/{customerId}", clienteId)
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(otroTaller, List.of("ADMIN_TALLER"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));

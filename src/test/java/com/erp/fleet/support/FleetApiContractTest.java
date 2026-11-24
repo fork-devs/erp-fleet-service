@@ -52,7 +52,7 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         String documento = documento();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("ADMIN_TALLER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente de prueba\",\"docType\":\"RUC\",\"docNumber\":\"" + documento + "\"}"))
@@ -68,13 +68,13 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
         String token = TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"));
         String documento = documento();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente de prueba\",\"docType\":\"RUC\",\"docNumber\":\"" + documento + "\"}"))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Otro cliente\",\"docType\":\"RUC\",\"docNumber\":\"" + documento + "\"}"))
@@ -91,7 +91,7 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
         String documento = documento();
         String placa = placa();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente de prueba\",\"docType\":\"RUC\",\"docNumber\":\"" + documento + "\"}"))
@@ -99,13 +99,13 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
 
         String clienteId = idDelUltimoCliente(taller);
 
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"" + placa + "\"}"))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/v1/fleet/vehicles")
+        mockMvc.perform(post("/api/v1/vehicles")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"customerId\":\"" + clienteId + "\",\"plate\":\"" + placa + "\"}"))
@@ -119,7 +119,7 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         UUID otroTaller = UUID.randomUUID();
 
-        mockMvc.perform(get("/api/v1/fleet/customers/{id}", UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/customers/{id}", UUID.randomUUID())
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("FLEET_CUSTOMER_NOT_FOUND"));
@@ -130,7 +130,7 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
     void unRolSinPermisoResponde403() throws Exception {
         UUID taller = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("MECANICO")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente\",\"docType\":\"RUC\",\"docNumber\":\"" + documento() + "\"}"))
@@ -140,7 +140,7 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Una peticion sin token responde 401")
     void unaPeticionSinTokenResponde401() throws Exception {
-        mockMvc.perform(get("/api/v1/fleet/customers"))
+        mockMvc.perform(get("/api/v1/customers"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -160,19 +160,19 @@ class FleetApiContractTest extends AbstractPostgresIntegrationTest {
         UUID taller = UUID.randomUUID();
         UUID otroTaller = UUID.randomUUID();
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("ADMIN_TALLER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente del taller\",\"docType\":\"RUC\",\"docNumber\":\"" + documento() + "\"}"))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/v1/fleet/customers")
+        mockMvc.perform(post("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(otroTaller, List.of("ADMIN_TALLER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fullName\":\"Cliente de otro taller\",\"docType\":\"RUC\",\"docNumber\":\"" + documento() + "\"}"))
                 .andExpect(status().isCreated());
 
-        String respuesta = mockMvc.perform(get("/api/v1/fleet/customers")
+        String respuesta = mockMvc.perform(get("/api/v1/customers")
                         .header("Authorization", "Bearer " + TestJwksServer.signToken(taller, List.of("ADMIN_TALLER"))))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
