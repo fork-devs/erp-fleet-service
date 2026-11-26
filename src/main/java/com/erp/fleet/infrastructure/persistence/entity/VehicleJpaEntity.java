@@ -27,6 +27,8 @@ public class VehicleJpaEntity {
     private String validationStatus;
     @Column(nullable = false, length = 20)
     private String status;
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
     @Column(name = "created_at")
     private Instant createdAt;
 
@@ -80,6 +82,8 @@ public class VehicleJpaEntity {
     public void setValidationStatus(String validationStatus) { this.validationStatus = validationStatus; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public String getNumeroMotor() { return numeroMotor; }
